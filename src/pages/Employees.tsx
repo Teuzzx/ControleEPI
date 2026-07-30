@@ -1,0 +1,344 @@
+import { useState } from 'react'
+import { Search, Plus, Edit2, Trash2, Eye, X, ChevronDown } from 'lucide-react'
+import { employees as initialEmployees, teams, roles, type Employee } from '../data/mock'
+
+function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+  const initials = name.split(' ').slice(0, 2).map((n) => n[0]).join('')
+  const colors = ['#6366F1', '#22D3EE', '#F59E0B', '#10B981', '#F43F5E', '#8B5CF6', '#EC4899']
+  const color = colors[name.charCodeAt(0) % colors.length]
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size * 0.28,
+      background: `${color}28`, border: `1px solid ${color}40`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-display)', fontSize: size * 0.36,
+      fontWeight: 700, color, flexShrink: 0,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
+type Mode = 'list' | 'view' | 'add' | 'edit'
+
+export default function Employees() {
+  const [employees, setEmployees] = useState(initialEmployees)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all')
+  const [teamFilter, setTeamFilter] = useState('all')
+  const [mode, setMode] = useState<Mode>('list')
+  const [selected, setSelected] = useState<Employee | null>(null)
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 8
+
+  const filtered = employees.filter((e) => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || e.name.toLowerCase().includes(q) || e.registration.toLowerCase().includes(q) || e.cpf.includes(q)
+    const matchStatus = statusFilter === 'all' || e.status === statusFilter
+    const matchTeam = teamFilter === 'all' || e.team === teamFilter
+    return matchSearch && matchStatus && matchTeam
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const openView = (emp: Employee) => { setSelected(emp); setMode('view') }
+  const openEdit = (emp: Employee) => { setSelected(emp); setMode('edit') }
+  const closeModal = () => { setMode('list'); setSelected(null) }
+  const deleteEmployee = (id: number) => { setEmployees((prev) => prev.filter((e) => e.id !== id)); closeModal() }
+
+  return (
+    <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>
+            Colaboradores
+          </h2>
+          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>
+            {employees.filter(e => e.status === 'Ativo').length} ativos de {employees.length} cadastrados
+          </p>
+        </div>
+        <button
+          onClick={() => setMode('add')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+            color: 'white', border: 'none', borderRadius: 10,
+            padding: '10px 18px', cursor: 'pointer',
+            fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 600,
+            boxShadow: '0 4px 16px rgba(99,102,241,0.3)',
+            transition: 'transform 0.15s, box-shadow 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(99,102,241,0.4)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(99,102,241,0.3)' }}
+        >
+          <Plus size={15} strokeWidth={2.5} />
+          Novo Colaborador
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div style={{
+        background: 'rgba(13,15,24,0.9)', border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 14, padding: '14px 16px', marginBottom: 16,
+        display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
+      }}>
+        <div style={{ position: 'relative', flex: '1', minWidth: 200 }}>
+          <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#3D4257' }} />
+          <input
+            className="input-field"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Buscar por nome, matrícula ou CPF..."
+            style={{ paddingLeft: 34, paddingTop: 9, paddingBottom: 9 }}
+          />
+        </div>
+
+        {/* Status filter */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value as any); setPage(1) }}
+            style={{
+              appearance: 'none', background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 9,
+              padding: '9px 32px 9px 14px', color: '#9BA3C4',
+              fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer',
+              outline: 'none', minWidth: 120,
+            }}
+          >
+            <option value="all">Todos</option>
+            <option value="Ativo">Ativos</option>
+            <option value="Inativo">Inativos</option>
+          </select>
+          <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#5C6388', pointerEvents: 'none' }} />
+        </div>
+
+        {/* Team filter */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={teamFilter}
+            onChange={(e) => { setTeamFilter(e.target.value); setPage(1) }}
+            style={{
+              appearance: 'none', background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 9,
+              padding: '9px 32px 9px 14px', color: '#9BA3C4',
+              fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer',
+              outline: 'none', minWidth: 140,
+            }}
+          >
+            <option value="all">Todas as Equipes</option>
+            {teams.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+          </select>
+          <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#5C6388', pointerEvents: 'none' }} />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{
+        background: 'rgba(13,15,24,0.9)', border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 14, overflow: 'hidden',
+      }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Colaborador</th>
+                <th>Matrícula</th>
+                <th>Cargo / Equipe</th>
+                <th>Setor</th>
+                <th>Admissão</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right', paddingRight: 20 }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: '#3D4257' }}>
+                    Nenhum colaborador encontrado.
+                  </td>
+                </tr>
+              ) : paged.map((emp) => (
+                <tr key={emp.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Avatar name={emp.name} />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: '#C4C9E2' }}>{emp.name}</div>
+                        <div style={{ fontSize: 11.5, color: '#3D4257' }}>{emp.cpf}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#818CF8' }}>{emp.registration}</td>
+                  <td>
+                    <div style={{ fontSize: 13, color: '#9BA3C4' }}>{emp.role}</div>
+                    <div style={{ fontSize: 11.5, color: '#3D4257' }}>{emp.team}</div>
+                  </td>
+                  <td style={{ fontSize: 13, color: '#6B7280' }}>{emp.sector}</td>
+                  <td style={{ fontSize: 12.5, fontFamily: 'var(--font-mono)', color: '#5C6388' }}>
+                    {new Date(emp.admissionDate).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td>
+                    <span className={`badge ${emp.status === 'Ativo' ? 'badge-success' : 'badge-neutral'}`}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
+                      {emp.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                      {[
+                        { icon: <Eye size={13} />, action: () => openView(emp), color: '#6366F1', title: 'Visualizar' },
+                        { icon: <Edit2 size={13} />, action: () => openEdit(emp), color: '#22D3EE', title: 'Editar' },
+                        { icon: <Trash2 size={13} />, action: () => deleteEmployee(emp.id), color: '#F43F5E', title: 'Excluir' },
+                      ].map(({ icon, action, color, title }) => (
+                        <button key={title} onClick={action} title={title} style={{
+                          width: 28, height: 28, borderRadius: 7,
+                          background: `${color}12`, border: `1px solid ${color}25`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', color,
+                          transition: 'background 0.15s, transform 0.1s',
+                        }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = `${color}22`; e.currentTarget.style.transform = 'scale(1.1)' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = `${color}12`; e.currentTarget.style.transform = '' }}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.05)',
+        }}>
+          <span style={{ fontSize: 12, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
+            {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+          </span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+              <button key={n} onClick={() => setPage(n)} style={{
+                width: 28, height: 28, borderRadius: 7,
+                background: n === page ? 'rgba(99,102,241,0.2)' : 'transparent',
+                border: n === page ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                color: n === page ? '#A5B4FC' : '#5C6388',
+                fontSize: 12.5, fontWeight: n === page ? 700 : 400, cursor: 'pointer',
+                fontFamily: 'var(--font-mono)', transition: 'all 0.15s',
+              }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Detail Modal */}
+      {(mode === 'view' || mode === 'edit') && selected && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+          <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <Avatar name={selected.name} size={44} />
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: '0 0 3px', letterSpacing: '-0.02em' }}>
+                    {selected.name}
+                  </h3>
+                  <p style={{ fontSize: 12.5, color: '#5C6388', margin: 0 }}>{selected.role} • {selected.team}</p>
+                </div>
+              </div>
+              <button onClick={closeModal} style={{
+                width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388',
+              }}>
+                <X size={15} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {[
+                { label: 'Matrícula', value: selected.registration },
+                { label: 'CPF', value: selected.cpf },
+                { label: 'Telefone', value: selected.phone },
+                { label: 'Cargo', value: selected.role },
+                { label: 'Equipe', value: selected.team },
+                { label: 'Setor', value: selected.sector },
+                { label: 'Empresa', value: selected.company },
+                { label: 'Admissão', value: new Date(selected.admissionDate).toLocaleDateString('pt-BR') },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 10.5, color: '#3D4257', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 13.5, color: '#C4C9E2', fontWeight: 500 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 10.5, color: '#3D4257', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
+              <span className={`badge ${selected.status === 'Ativo' ? 'badge-success' : 'badge-neutral'}`}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
+                {selected.status}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <button onClick={closeModal} style={{
+                flex: 1, padding: '11px', borderRadius: 10,
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              }}>
+                Fechar
+              </button>
+              <button onClick={() => openEdit(selected)} style={{
+                flex: 1, padding: '11px', borderRadius: 10,
+                background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none',
+                color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              }}>
+                Editar Colaborador
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {mode === 'add' && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+          <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em' }}>
+                Novo Colaborador
+              </h3>
+              <button onClick={closeModal} style={{
+                width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388',
+              }}>
+                <X size={15} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {['Nome Completo', 'CPF', 'Telefone', 'Matrícula', 'Cargo', 'Setor', 'Empresa'].map((label) => (
+                <div key={label} style={{ gridColumn: label === 'Nome Completo' ? 'span 2' : undefined }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</label>
+                  <input className="input-field" placeholder={label} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={closeModal} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={closeModal} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Salvar Colaborador</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
