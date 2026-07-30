@@ -28,6 +28,7 @@ export default function Employees() {
   const [teamFilter, setTeamFilter] = useState('all')
   const [mode, setMode] = useState<Mode>('list')
   const [selected, setSelected] = useState<Employee | null>(null)
+  const [form, setForm] = useState<Record<string, string>>({})
   const [page, setPage] = useState(1)
   const PER_PAGE = 8
 
@@ -44,7 +45,7 @@ export default function Employees() {
 
   const openView = (emp: Employee) => { setSelected(emp); setMode('view') }
   const openEdit = (emp: Employee) => { setSelected(emp); setMode('edit') }
-  const closeModal = () => { setMode('list'); setSelected(null) }
+  const closeModal = () => { setMode('list'); setSelected(null); setForm({}) }
   const deleteEmployee = (id: number) => { setEmployees((prev) => prev.filter((e) => e.id !== id)); closeModal() }
 
   return (
@@ -324,16 +325,74 @@ export default function Employees() {
               </button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {['Nome Completo', 'CPF', 'Telefone', 'Matrícula', 'Cargo', 'Setor', 'Empresa'].map((label) => (
-                <div key={label} style={{ gridColumn: label === 'Nome Completo' ? 'span 2' : undefined }}>
+              {[
+                { label: 'Nome Completo', key: 'name', colSpan: 2 },
+                { label: 'CPF', key: 'cpf' },
+                { label: 'Telefone', key: 'phone' },
+                { label: 'Matrícula', key: 'registration' },
+                { label: 'Cargo', key: 'role' },
+                { label: 'Setor', key: 'sector' },
+                { label: 'Empresa', key: 'company' },
+              ].map(({ label, key, colSpan }) => (
+                <div key={key} style={{ gridColumn: colSpan ? 'span 2' : undefined }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</label>
-                  <input className="input-field" placeholder={label} />
+                  <input
+                    className="input-field"
+                    placeholder={label}
+                    value={(form as any)[key] || ''}
+                    onChange={(e) => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                  />
                 </div>
               ))}
+              <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Equipe</label>
+                  <select
+                    className="input-field"
+                    style={{ appearance: 'none' }}
+                    value={(form as any).team || ''}
+                    onChange={(e) => setForm((prev: any) => ({ ...prev, team: e.target.value }))}
+                  >
+                    <option value="">Selecione...</option>
+                    {teams.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Status</label>
+                  <select
+                    className="input-field"
+                    style={{ appearance: 'none' }}
+                    value={(form as any).status || 'Ativo'}
+                    onChange={(e) => setForm((prev: any) => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={closeModal} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={closeModal} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Salvar Colaborador</button>
+              <button onClick={() => {
+                const f = form as any
+                if (!f.name?.trim()) return
+                const nextId = Math.max(...employees.map((e) => e.id)) + 1
+                setEmployees((prev) => [...prev, {
+                  id: nextId,
+                  name: f.name || 'Novo Colaborador',
+                  cpf: f.cpf || '000.000.000-00',
+                  phone: f.phone || '(00) 00000-0000',
+                  registration: f.registration || `MAT-${String(nextId).padStart(5, '0')}`,
+                  role: f.role || 'Sem cargo',
+                  team: f.team || 'Operações',
+                  sector: f.sector || 'Sem setor',
+                  company: f.company || 'Norion',
+                  admissionDate: new Date().toISOString().split('T')[0],
+                  status: f.status || 'Ativo',
+                }])
+                setForm({})
+                closeModal()
+              }} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Salvar Colaborador</button>
             </div>
           </div>
         </div>

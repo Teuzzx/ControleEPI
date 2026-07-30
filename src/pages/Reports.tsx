@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { BarChart3, Download, FileText, Filter, Calendar, ChevronDown } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { FileText, Download, ChevronDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 import { employees, epis, movements, categories } from '../data/mock'
 
@@ -28,28 +28,94 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-const topProducts = [
-  { name: 'Protetor Auricular', qty: 1200 },
-  { name: 'Camisa Operacional', qty: 620 },
-  { name: 'Calça Operacional', qty: 480 },
-  { name: 'Luva de Vaqueta', qty: 312 },
-  { name: 'Bota de Segurança', qty: 388 },
-  { name: 'Capacete ABS', qty: 245 },
-  { name: 'Óculos de Proteção', qty: 38 },
-]
+function generateCSV(filename: string, headers: string[], rows: string[][]) {
+  const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+  const BOM = '\uFEFF'
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${filename}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function Reports() {
   const [selectedReport, setSelectedReport] = useState('stock')
   const [period, setPeriod] = useState('month')
   const [generating, setGenerating] = useState(false)
 
-  const handleGenerate = async () => {
+  const lowStockItems = useMemo(() => epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico'), [])
+  const totalDeliveries = useMemo(() => movements.filter((m) => m.type === 'Entrega').length, [])
+  const totalStock = useMemo(() => epis.reduce((s, e) => s + e.totalQuantity, 0), [])
+
+  const topProducts = useMemo(() =>
+    [...epis]
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, 7)
+      .map((e) => ({ name: e.name.length > 18 ? e.name.slice(0, 16) + '...' : e.name, qty: e.totalQuantity })),
+    []
+  )
+
+  const handleGenerate = () => {
     setGenerating(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setGenerating(false)
+    setTimeout(() => {
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-')
+      const periodLabel = period === 'week' ? 'Semanal' : period === 'month' ? 'Mensal' : period === 'quarter' ? 'Trimestral' : 'Anual'
+
+      switch (selectedReport) {
+        case 'stock': {
+          const headers = ['Produto', 'Categoria', 'Fabricante', 'Qtd Total', 'Qtd Mínima', 'Status', 'Localização']
+          const rows = epis.map((e) => [e.name, e.category, e.manufacturer, String(e.totalQuantity), String(e.minQuantity), e.status, e.location])
+          generateCSV(`estoque-atual-${dateStr}`, headers, rows)
+          break
+        }
+        case 'low_stock': {
+          const headers = ['Produto', 'Categoria', 'Qtd Atual', 'Qtd Mínima', 'Status', 'Localização']
+          const rows = lowStockItems.map((e) => [e.name, e.category, String(e.totalQuantity), String(e.minQuantity), e.status, e.location])
+          generateCSV(`estoque-critico-${dateStr}`, headers, rows)
+          break
+        }
+        case 'movements': {
+          const headers = ['#', 'Tipo', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Operador', 'Obs']
+          const rows = movements.map((m) => [String(m.id), m.type, m.employee, m.epi, String(m.quantity), m.date, m.operator, m.notes || ''])
+          generateCSV(`movimentacoes-${dateStr}`, headers, rows)
+          break
+        }
+        case 'employee': {
+          const headers = ['Nome', 'Matrícula', 'CPF', 'Cargo', 'Equipe', 'Setor', 'Empresa', 'Admissão', 'Status']
+          const rows = employees.map((e) => [e.name, e.registration, e.cpf, e.role, e.team, e.sector, e.company, e.admissionDate, e.status])
+          generateCSV(`colaboradores-${dateStr}`, headers, rows)
+          break
+        }
+        case 'top_products': {
+          const headers = ['Produto', 'Quantidade']
+          const rows = [...epis].sort((a, b) => b.totalQuantity - a.totalQuantity).map((e) => [e.name, String(e.totalQuantity)])
+          generateCSV(`produtos-mais-distribuidos-${dateStr}`, headers, rows)
+          break
+        }
+        case 'devolutions': {
+          const devs = movements.filter((m) => m.type === 'Devolução')
+          const headers = ['#', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Obs']
+          const rows = devs.map((m) => [String(m.id), m.employee, m.epi, String(m.quantity), m.date, m.notes || ''])
+          generateCSV(`devolucoes-${dateStr}`, headers, rows)
+          break
+        }
+        default: {
+          const headers = ['Relatório', 'Período', 'Gerado em']
+          const rows = [[`${REPORT_TYPES.find((r) => r.id === selectedReport)?.label}`, periodLabel, now.toLocaleString('pt-BR')]]
+          generateCSV(`relatorio-${dateStr}`, headers, rows)
+        }
+      }
+      setGenerating(false)
+    }, 800)
   }
 
-  const lowStockItems = epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico')
+  const handleExportExcel = () => handleGenerate()
+  const handleExportPDF = () => handleGenerate()
+
+  const isEmpty = employees.length === 0 && epis.length === 0 && movements.length === 0
 
   return (
     <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
@@ -148,11 +214,11 @@ export default function Reports() {
               )}
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 9, color: '#4ADE80', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-                <Download size={13} /> Excel
+              <button onClick={handleExportExcel} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 9, color: '#4ADE80', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                <Download size={13} /> CSV
               </button>
-              <button style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9, color: '#F87171', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-                <Download size={13} /> PDF
+              <button onClick={handleExportPDF} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9, color: '#F87171', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                <Download size={13} /> CSV
               </button>
             </div>
           </div>
@@ -164,16 +230,18 @@ export default function Reports() {
           {/* Summary stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             {[
-              { label: 'Total de Entregas', value: '88', color: '#6366F1' },
-              { label: 'Itens em Estoque', value: epis.reduce((s, e) => s + e.totalQuantity, 0).toLocaleString('pt-BR'), color: '#22D3EE' },
+              { label: 'Total de Entregas', value: totalDeliveries.toString(), color: '#6366F1' },
+              { label: 'Itens em Estoque', value: totalStock.toLocaleString('pt-BR'), color: '#22D3EE' },
               { label: 'Alertas Ativos', value: lowStockItems.length.toString(), color: '#F43F5E' },
             ].map(({ label, value, color }) => (
               <div key={label} style={{
                 background: 'rgba(13,15,24,0.9)', border: '1px solid rgba(255,255,255,0.07)',
                 borderRadius: 14, padding: '16px 18px',
               }}>
-                <div style={{ fontSize: 10.5, color: '#3D4257', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{label}</div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, color, letterSpacing: '-0.03em' }}>{value}</div>
+                <div style={{ fontSize: 10.5, color: '#3D4257', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, fontWeight: 700 }}>{label}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, color, letterSpacing: '-0.03em' }}>
+                  {isEmpty ? '0' : value}
+                </div>
               </div>
             ))}
           </div>
@@ -184,19 +252,25 @@ export default function Reports() {
               Distribuição por Quantidade em Estoque
             </h3>
             <p style={{ fontSize: 12, color: '#3D4257', margin: '0 0 18px' }}>Visualização prévia do relatório selecionado</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={topProducts} margin={{ top: 4, right: 4, bottom: 0, left: -10 }} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: '#3D4257', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#3D4257', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-                <Bar dataKey="qty" name="Qtd" radius={[5, 5, 0, 0]}>
-                  {topProducts.map((_, i) => (
-                    <Cell key={i} fill={`hsl(${230 + i * 20}, 80%, 65%)`} fillOpacity={0.85} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {isEmpty ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#3D4257', fontSize: 13 }}>
+                Nenhum produto cadastrado para exibir no gráfico.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={topProducts} margin={{ top: 4, right: 4, bottom: 0, left: -10 }} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#3D4257', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#3D4257', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+                  <Bar dataKey="qty" name="Qtd" radius={[5, 5, 0, 0]}>
+                    {topProducts.map((_, i) => (
+                      <Cell key={i} fill={`hsl(${230 + i * 20}, 80%, 65%)`} fillOpacity={0.85} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Low stock table */}
@@ -218,7 +292,13 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {lowStockItems.map((item) => (
+                {lowStockItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: 32, color: '#3D4257' }}>
+                      Nenhum produto com alerta no momento.
+                    </td>
+                  </tr>
+                ) : lowStockItems.map((item) => (
                   <tr key={item.id}>
                     <td style={{ fontWeight: 600, color: '#C4C9E2' }}>{item.name}</td>
                     <td style={{ color: '#6B7280' }}>{item.category}</td>

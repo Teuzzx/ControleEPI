@@ -98,10 +98,33 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
+function useRealtimeClock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(id)
+  }, [])
+  return now
+}
+
 export default function Overview() {
+  const now = useRealtimeClock()
   const lowStock = epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico')
   const activeEmployees = employees.filter((e) => e.status === 'Ativo')
   const totalStock = epis.reduce((s, e) => s + e.totalQuantity, 0)
+
+  const todayMovements = movements.filter((m) => {
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    return m.date.startsWith(today)
+  }).length
+
+  const thisMonthDeliveries = movements.filter((m) => {
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return m.type === 'Entrega' && m.date.startsWith(ym)
+  }).length
+
+  const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24, animation: 'fade-up 0.5s ease both' }}>
@@ -114,21 +137,21 @@ export default function Overview() {
       }}>
         <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22D3EE', boxShadow: '0 0 8px rgba(34,211,238,0.6)', flexShrink: 0, animation: 'pulse-glow 2s ease-in-out infinite' }} />
         <span style={{ fontSize: 12.5, color: '#67E8F9', fontWeight: 500 }}>
-          Sistema sincronizado — última atualização há 2 min
+          Sistema sincronizado
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
-          15/03/2024 — 14:32
+          {dateStr} — {timeStr}
         </span>
       </div>
 
       {/* Metric cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-        <MetricCard icon={<Users size={18} />}    label="Colaboradores Ativos" value={activeEmployees.length}   trend="up"      trendLabel="+2 este mês"   color="#6366F1" delay={0} />
-        <MetricCard icon={<Package size={18} />}  label="Total em Estoque"      value={totalStock.toLocaleString('pt-BR')} trend="down"  trendLabel="-88 esta semana" color="#22D3EE" delay={80} />
-        <MetricCard icon={<Tag size={18} />}       label="Categorias Ativas"     value={categories.length}       trend="neutral" trendLabel="Sem alterações" color="#F59E0B" delay={160} />
-        <MetricCard icon={<AlertTriangle size={18} />} label="Alertas de Estoque" value={lowStock.length}        trend="down"    trendLabel="Atenção!"      color="#F43F5E" delay={240} />
-        <MetricCard icon={<Activity size={18} />} label="Movimentações Hoje"    value={8}                        trend="up"      trendLabel="+3 vs ontem"   color="#10B981" delay={320} />
-        <MetricCard icon={<CheckCircle2 size={18} />} label="Entregas no Mês"   value={88}                       trend="up"      trendLabel="+20%"          color="#8B5CF6" delay={400} />
+        <MetricCard icon={<Users size={18} />}    label="Colaboradores Ativos" value={activeEmployees.length}   trend="up"      trendLabel={activeEmployees.length > 0 ? "Registrados no sistema" : "Nenhum ainda"}   color="#6366F1" delay={0} />
+        <MetricCard icon={<Package size={18} />}  label="Total em Estoque"      value={totalStock.toLocaleString('pt-BR')} trend={totalStock > 0 ? "neutral" : "down"}  trendLabel={totalStock > 0 ? "Unidades" : "Vazio"} color="#22D3EE" delay={80} />
+        <MetricCard icon={<Tag size={18} />}       label="Categorias"           value={categories.length}       trend="neutral" trendLabel="Cadastradas" color="#F59E0B" delay={160} />
+        <MetricCard icon={<AlertTriangle size={18} />} label="Alertas de Estoque" value={lowStock.length}        trend={lowStock.length > 0 ? "down" : "up"}    trendLabel={lowStock.length > 0 ? "Atenção!" : "Tudo ok"}      color="#F43F5E" delay={240} />
+        <MetricCard icon={<Activity size={18} />} label="Movimentações Hoje"    value={todayMovements}          trend={todayMovements > 0 ? "up" : "neutral"}     trendLabel="Hoje"   color="#10B981" delay={320} />
+        <MetricCard icon={<CheckCircle2 size={18} />} label="Entregas no Mês"   value={thisMonthDeliveries}     trend={thisMonthDeliveries > 0 ? "up" : "neutral"}      trendLabel="Entregas"          color="#8B5CF6" delay={400} />
       </div>
 
       {/* Charts row */}
@@ -145,7 +168,7 @@ export default function Overview() {
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
                 Movimentações por Período
               </h3>
-              <p style={{ fontSize: 12, color: '#3D4257', margin: 0 }}>Entregas, devoluções e entradas nos últimos 6 meses</p>
+              <p style={{ fontSize: 12, color: '#3D4257', margin: 0 }}>Entregas, devoluções e entradas</p>
             </div>
             <div style={{ display: 'flex', gap: 16 }}>
               {[
@@ -237,7 +260,11 @@ export default function Overview() {
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {movements.slice(0, 6).map((m) => (
+            {movements.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#3D4257', fontSize: 13 }}>
+                Nenhuma movimentação registrada.
+              </div>
+            ) : movements.slice(0, 6).map((m) => (
               <div key={m.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 0',
@@ -260,7 +287,7 @@ export default function Overview() {
                   </div>
                 </div>
                 <span style={{ fontSize: 10.5, color: '#3D4257', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-                  {m.date.split(' ')[1]}
+                  {m.date.split(' ')[1] || m.date}
                 </span>
               </div>
             ))}
@@ -282,7 +309,11 @@ export default function Overview() {
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {lowStock.map((item) => {
+            {lowStock.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#3D4257', fontSize: 13 }}>
+                Nenhum alerta no momento.
+              </div>
+            ) : lowStock.map((item) => {
               const pct = Math.round((item.totalQuantity / item.minQuantity) * 100)
               return (
                 <div key={item.id} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.025)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>

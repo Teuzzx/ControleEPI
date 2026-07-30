@@ -86,7 +86,7 @@ export default function Sidebar({ current, onNavigate, onLogout }: Props) {
               EPI<span style={{ color: '#818CF8' }}>Admin</span>
             </div>
             <div style={{ fontSize: 9.5, color: '#3D4257', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Infratech S.A.
+              by <span style={{ color: '#818CF8' }}>Norion</span>
             </div>
           </div>
         )}

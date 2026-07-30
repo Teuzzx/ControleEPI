@@ -15,14 +15,8 @@ interface Entry {
   notes: string
 }
 
-const SAMPLE_ENTRIES: Entry[] = [
-  { id: 1, epi: 'Respirador PFF2 Sem Válvula', manufacturer: '3M', supplier: 'Safety Plus Ltda', batch: 'L2024-009-R', date: '2024-03-14', quantity: 500, color: 'Branco', size: 'Único', notes: 'Reposição emergencial' },
-  { id: 2, epi: 'Capacete de Segurança ABS', manufacturer: '3M', supplier: 'Safety Plus Ltda', batch: 'L2024-001-B', date: '2024-03-10', quantity: 80, color: 'Branco', size: 'Único', notes: '' },
-  { id: 3, epi: 'Camisa Operacional FR', manufacturer: 'Tecbrasil', supplier: 'Uniformes Pro Ltda', batch: 'L2024-022-M', date: '2024-03-08', quantity: 200, color: 'Azul Royal', size: 'M', notes: 'Entrada de reposição mensal' },
-]
-
 export default function Entries() {
-  const [entries, setEntries] = useState<Entry[]>(SAMPLE_ENTRIES)
+  const [entries, setEntries] = useState<Entry[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ epi: '', manufacturer: '', supplier: '', batch: '', date: '', quantity: '', color: '', size: '', notes: '' })
 

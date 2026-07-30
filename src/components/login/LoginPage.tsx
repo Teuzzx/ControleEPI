@@ -281,9 +281,14 @@ export default function LoginPage({ onLogin }: Props) {
             }}>
               <Shield size={18} color="white" strokeWidth={2.5} />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', letterSpacing: '-0.02em' }}>
-              EPI<span style={{ color: '#6366F1' }}>Admin</span>
-            </span>
+            <div>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', letterSpacing: '-0.02em' }}>
+                EPI<span style={{ color: '#6366F1' }}>Admin</span>
+              </span>
+              <div style={{ fontSize: 9, color: '#2D3050', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
+                by <span style={{ color: '#818CF8' }}>Norion</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -391,9 +396,19 @@ export default function LoginPage({ onLogin }: Props) {
             Gestão de EPIs{' '}
             <span className="gradient-text">inteligente</span>
           </h1>
-          <p style={{ fontSize: 15, color: '#5C6388', lineHeight: 1.7, margin: 0 }}>
+          <p style={{ fontSize: 15, color: '#5C6388', lineHeight: 1.7, margin: '0 0 24px' }}>
             Controle total do seu almoxarifado. Colaboradores, estoque e movimentações em tempo real.
           </p>
+
+          {/* Norion branding */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <div style={{ height: 1, width: 40, background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.3))' }} />
+            <span style={{ fontSize: 11, color: '#2D3050', fontFamily: 'var(--font-display)', letterSpacing: '0.06em', fontWeight: 500 }}>
+              <span className="gradient-text" style={{ fontWeight: 700 }}>Norion</span>
+              <span style={{ color: '#2D3050' }}> • Tecnologia e Inovação</span>
+            </span>
+            <div style={{ height: 1, width: 40, background: 'linear-gradient(90deg, rgba(99,102,241,0.3), transparent)' }} />
+          </div>
         </div>
       </div>
 
@@ -425,9 +440,24 @@ export default function LoginPage({ onLogin }: Props) {
             style={{
               borderRadius: 20,
               padding: '40px 40px 36px',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.08), 0 0 40px rgba(99,102,241,0.06)',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
+            {/* Subtle gradient border glow */}
+            <div style={{
+              position: 'absolute',
+              inset: -1,
+              borderRadius: 21,
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.15), transparent 40%, transparent 60%, rgba(34,211,238,0.1))',
+              zIndex: -1,
+              mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              maskComposite: 'exclude',
+              WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              WebkitMaskComposite: 'xor',
+              padding: '1px',
+            }} />
             {/* Logo inside form */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 36 }}>
               <div style={{
@@ -613,7 +643,31 @@ export default function LoginPage({ onLogin }: Props) {
           <div style={{ textAlign: 'center', marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80', boxShadow: '0 0 8px rgba(74,222,128,0.6)' }} />
             <span style={{ fontSize: 11.5, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
-              Sistema Online — v2.4.1 — Infratech S.A.
+              Sistema Online — v2.4.1
+            </span>
+          </div>
+
+          {/* Feito pela Norion */}
+          <div style={{ textAlign: 'center', marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+            <span style={{
+              fontSize: 10.5,
+              color: '#2D3050',
+              fontFamily: 'var(--font-display)',
+              letterSpacing: '0.05em',
+              fontWeight: 500,
+            }}>
+              Feito com <span style={{ color: '#F43F5E' }}>❤</span> pela{' '}
+              <span style={{
+                color: '#818CF8',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #6366F1, #818CF8)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>
+                Norion
+              </span>
+              <span style={{ color: '#1D2040', margin: '0 6px' }}>•</span>
+              <span style={{ color: '#2D3050', fontWeight: 400 }}>Tecnologia e Inovação</span>
             </span>
           </div>
         </div>

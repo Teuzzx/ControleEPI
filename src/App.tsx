@@ -37,15 +37,17 @@ function PageComponent({ page }: { page: Page }) {
 }
 
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(false)
+  const [authenticated, setAuthenticated] = useState(() => localStorage.getItem('auth') === 'true')
   const [currentPage, setCurrentPage] = useState<Page>('overview')
   const [transitioning, setTransitioning] = useState(false)
 
   const handleLogin = () => {
+    localStorage.setItem('auth', 'true')
     setAuthenticated(true)
   }
 
   const handleLogout = () => {
+    localStorage.removeItem('auth')
     setAuthenticated(false)
     setCurrentPage('overview')
   }
