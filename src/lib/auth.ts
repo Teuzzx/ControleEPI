@@ -1,6 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { supabase, supabaseUrl, supabaseAnonKey } from './supabase'
 
+// Mesma opção do client raiz: sem GoTrueClient (login é via RPC), evita
+// colisão de storage entre instâncias e o aviso "Multiple GoTrueClient instances".
+const clientOptions = {
+  auth: { autoRefreshToken: false, persistSession: false },
+} as const
+
 export interface SessionUser {
   id: number
   name: string
@@ -42,6 +48,7 @@ export function getAuthClient(): SupabaseClient {
   if (authedClient) return authedClient
   const session = loadSession()
   authedClient = createClient(supabaseUrl, supabaseAnonKey, {
+    ...clientOptions,
     global: { headers: tokenHeader(session?.token) },
   })
   return authedClient
@@ -53,7 +60,10 @@ export function resetAuthClient(): void {
 
 /** Cliente apontando para o banco de uma filial, autenticado com o token. */
 export function createSessionClient(url: string, anonKey: string, token: string): SupabaseClient {
-  return createClient(url, anonKey, { global: { headers: tokenHeader(token) } })
+  return createClient(url, anonKey, {
+    ...clientOptions,
+    global: { headers: tokenHeader(token) },
+  })
 }
 
 /**

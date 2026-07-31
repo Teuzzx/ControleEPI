@@ -9,13 +9,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase credentials missing. Check .env file.')
 }
 
+// O app não usa o Auth do Supabase (login é via RPC app_login), então
+// desligamos o GoTrueClient: evita o aviso "Multiple GoTrueClient instances"
+// e a colisão de storage entre os vários clients criados.
+const clientOptions = {
+  auth: { autoRefreshToken: false, persistSession: false },
+} as const
+
 /** Client raiz — banco da matriz. Autenticação (users/companies) sempre usa este. */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, clientOptions)
 
 /** Cria um client apontando para o banco de outra empresa (filial). */
 export function createCompanyClient(url: string, anonKey: string): SupabaseClient {
   if (!url || !anonKey) {
     throw new Error('Empresa sem banco de dados configurado.')
   }
-  return createClient(url, anonKey)
+  return createClient(url, anonKey, clientOptions)
 }

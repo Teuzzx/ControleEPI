@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createCompanyClient } from '../lib/supabase'
 import { useDataClient } from '../lib/clientContext'
 import type {
@@ -49,6 +49,8 @@ interface DbStockEntry {
 }
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+let channelSeq = 0
 
 function computeStatus(total: number, min: number): Epi['status'] {
   if (min <= 0) return 'Disponível'
@@ -252,18 +254,27 @@ export function useSupabaseData() {
     refresh()
   }, [refresh])
 
+  // Nome único por instância de client: evita o erro "cannot add postgres_changes
+  // callbacks ... after subscribe()" quando o client troca no login (o removeChannel
+  // é assíncrono e o .channel() com o mesmo nome devolveria o canal antigo inscrito).
+  const realtimeChannelName = useMemo(() => `realtime-data-${++channelSeq}`, [client])
+
   // Realtime: atualiza os dados quando qualquer tabela mudar no banco.
   useEffect(() => {
-    const channel = client
-      .channel('realtime-data')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        refresh()
-      })
-      .subscribe()
-    return () => {
-      client.removeChannel(channel)
+    try {
+      const channel = client
+        .channel(realtimeChannelName)
+        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+          refresh()
+        })
+        .subscribe()
+      return () => {
+        client.removeChannel(channel)
+      }
+    } catch {
+      // realtime falhou: o app continua funcionando (dados carregam no refresh).
     }
-  }, [client, refresh])
+  }, [client, refresh, realtimeChannelName])
 
   const addEmployee = useCallback(async (data: {
     name: string; cpf?: string; phone?: string; registration?: string; role?: string
