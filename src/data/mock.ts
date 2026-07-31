@@ -24,6 +24,8 @@ export interface Team {
   memberCount: number
 }
 
+export type Department = Team
+
 export interface Role {
   id: number
   name: string
@@ -68,12 +70,13 @@ export interface Epi {
 
 export interface Movement {
   id: number
-  type: 'Entrega' | 'Devolução' | 'Troca' | 'Entrada' | 'Baixa'
+  type: 'Entrega' | 'Devolução' | 'Troca' | 'Entrada' | 'Baixa' | 'Distribuição'
   employee: string
   epi: string
   quantity: number
   date: string
   operator: string
+  company?: string
   notes?: string
 }
 
@@ -94,6 +97,7 @@ export interface StockEntry {
 // All arrays start empty — data comes from Supabase when connected.
 
 export const teams: Team[] = []
+export const departments: Department[] = []
 export const roles: Role[] = []
 export const employees: Employee[] = []
 export const categories: Category[] = []

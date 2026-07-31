@@ -1,42 +1,63 @@
 import { useState } from 'react'
 import { Plus, Edit2, Trash2, X, Users } from 'lucide-react'
-import { teams as initialTeams, employees } from '../data/mock'
+import { useSupabaseData } from '../hooks/useSupabaseData'
+import type { Department } from '../data/mock'
 
 const COLORS = ['#6366F1', '#22D3EE', '#F59E0B', '#10B981', '#F43F5E', '#8B5CF6', '#EC4899', '#F97316']
 
-export default function Teams() {
-  const [teams, setTeams] = useState(initialTeams)
-  const [showAdd, setShowAdd] = useState(false)
+export default function Departments() {
+  const { departments, employees, loading, addDepartment, updateDepartment, deleteDepartment } = useSupabaseData()
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<Department | null>(null)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newColor, setNewColor] = useState(COLORS[0])
 
-  const handleAdd = () => {
-    if (!newName.trim()) return
-    setTeams((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: newName,
-        description: newDesc,
-        color: newColor,
-        memberCount: 0,
-      },
-    ])
-    setNewName(''); setNewDesc(''); setNewColor(COLORS[0]); setShowAdd(false)
+  const openAdd = () => {
+    setEditing(null)
+    setNewName(''); setNewDesc(''); setNewColor(COLORS[0])
+    setShowModal(true)
   }
 
-  const handleDelete = (id: number) => setTeams((prev) => prev.filter((t) => t.id !== id))
+  const openEdit = (team: Department) => {
+    setEditing(team)
+    setNewName(team.name); setNewDesc(team.description); setNewColor(team.color)
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    if (!newName.trim()) return
+    try {
+      if (editing) {
+        await updateDepartment(editing.id, { name: newName, description: newDesc, color: newColor })
+      } else {
+        await addDepartment({ name: newName, description: newDesc, color: newColor })
+      }
+    } catch (err) {
+      alert(`Erro ao salvar departamento: ${(err as Error).message}`)
+      return
+    }
+    setShowModal(false)
+    setEditing(null)
+  }
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteDepartment(id)
+    } catch (err) {
+      alert(`Erro ao excluir departamento: ${(err as Error).message}`)
+    }
+  }
 
   return (
     <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>Equipes</h2>
-          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>{teams.length} equipes cadastradas</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>Departamentos</h2>
+          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>{loading ? 'Carregando...' : `${departments.length} departamentos cadastrados`}</p>
         </div>
-        <button onClick={() => setShowAdd(true)} style={{
+        <button onClick={openAdd} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: 'linear-gradient(135deg, #6366F1, #4F46E5)', color: 'white', border: 'none',
           borderRadius: 10, padding: '10px 18px', cursor: 'pointer',
@@ -46,12 +67,12 @@ export default function Teams() {
           onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
           onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
         >
-          <Plus size={15} strokeWidth={2.5} /> Nova Equipe
+          <Plus size={15} strokeWidth={2.5} /> Novo Departamento
         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-        {teams.map((team, idx) => {
+        {departments.map((team, idx) => {
           const members = employees.filter((e) => e.team === team.name)
           return (
             <div key={team.id} style={{
@@ -80,7 +101,7 @@ export default function Teams() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  <button style={{
+                  <button onClick={() => openEdit(team)} style={{
                     width: 28, height: 28, borderRadius: 7, background: `${team.color}12`,
                     border: `1px solid ${team.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', color: team.color, transition: 'background 0.15s',
@@ -136,43 +157,37 @@ export default function Teams() {
         })}
       </div>
 
-      {/* Add modal */}
-      {showAdd && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+      {/* Add / Edit modal */}
+      {showModal && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 440, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em' }}>
-                Nova Equipe
+                {editing ? 'Editar Departamento' : 'Novo Departamento'}
               </h3>
-              <button onClick={() => setShowAdd(false)} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388' }}>
+              <button onClick={() => setShowModal(false)} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388' }}>
                 <X size={15} />
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nome da Equipe</label>
-                <input className="input-field" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex: Operações Norte" />
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nome</label>
+                <input className="input-field" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex: Operações" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Descrição</label>
-                <input className="input-field" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Descrição da equipe" />
+                <input className="input-field" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Descrição do departamento" />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Cor de Identificação</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {COLORS.map((c) => (
-                    <button key={c} onClick={() => setNewColor(c)} style={{
-                      width: 28, height: 28, borderRadius: 8, background: c, border: newColor === c ? '2px solid white' : '2px solid transparent',
-                      cursor: 'pointer', boxShadow: newColor === c ? `0 0 12px ${c}70` : 'none',
-                      transition: 'all 0.15s',
-                    }} />
-                  ))}
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Cor</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {COLORS.map((c) => <button key={c} onClick={() => setNewColor(c)} style={{ width: 28, height: 28, borderRadius: 8, background: c, border: newColor === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: newColor === c ? `0 0 12px ${c}70` : 'none' }} />)}
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-              <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={handleAdd} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Criar Equipe</button>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleSave} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{editing ? 'Salvar Alterações' : 'Criar Departamento'}</button>
             </div>
           </div>
         </div>

@@ -1,22 +1,45 @@
 import { useState } from 'react'
 import { Plus, Edit2, Trash2, X, Tag } from 'lucide-react'
-import { categories as initialCategories } from '../data/mock'
+import { useSupabaseData } from '../hooks/useSupabaseData'
 
 const COLORS = ['#6366F1', '#22D3EE', '#F59E0B', '#10B981', '#F43F5E', '#8B5CF6', '#EC4899', '#F97316']
 const ICONS_LIST = ['🪖', '👢', '🥽', '🎧', '😷', '🧤', '👕', '🔗', '⚙️', '🏗️', '🔦', '🦺']
 
-export default function Categories() {
-  const [categories, setCategories] = useState(initialCategories)
-  const [showAdd, setShowAdd] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newDesc, setNewDesc] = useState('')
-  const [newColor, setNewColor] = useState(COLORS[0])
-  const [newIcon, setNewIcon] = useState(ICONS_LIST[0])
+interface CategoryForm { id?: number; name: string; description: string; icon: string; color: string }
 
-  const handleAdd = () => {
-    if (!newName.trim()) return
-    setCategories((prev) => [...prev, { id: Date.now(), name: newName, description: newDesc, icon: newIcon, color: newColor, itemCount: 0 }])
-    setNewName(''); setNewDesc(''); setNewColor(COLORS[0]); setNewIcon(ICONS_LIST[0]); setShowAdd(false)
+export default function Categories() {
+  const { categories, loading, addCategory, updateCategory, deleteCategory } = useSupabaseData()
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<CategoryForm | null>(null)
+
+  const openAdd = () => { setEditing(null); setShowModal(true) }
+  const openEdit = (cat: { id: number; name: string; description: string; icon: string; color: string }) => {
+    setEditing({ id: cat.id, name: cat.name, description: cat.description, icon: cat.icon, color: cat.color })
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    if (!editing?.name?.trim()) return
+    try {
+      if (editing.id != null) {
+        await updateCategory(editing.id, { name: editing.name, description: editing.description, icon: editing.icon, color: editing.color })
+      } else {
+        await addCategory({ name: editing.name, description: editing.description, icon: editing.icon, color: editing.color })
+      }
+    } catch (err) {
+      alert(`Erro ao salvar categoria: ${(err as Error).message}`)
+      return
+    }
+    setShowModal(false)
+    setEditing(null)
+  }
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteCategory(id)
+    } catch (err) {
+      alert(`Erro ao excluir categoria: ${(err as Error).message}`)
+    }
   }
 
   return (
@@ -24,9 +47,9 @@ export default function Categories() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>Categorias</h2>
-          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>{categories.length} categorias cadastradas</p>
+          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>{loading ? 'Carregando...' : `${categories.length} categorias cadastradas`}</p>
         </div>
-        <button onClick={() => setShowAdd(true)} style={{
+        <button onClick={openAdd} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: 'linear-gradient(135deg, #6366F1, #4F46E5)', color: 'white', border: 'none',
           borderRadius: 10, padding: '10px 18px', cursor: 'pointer',
@@ -60,10 +83,10 @@ export default function Categories() {
                 {cat.icon}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button style={{ width: 28, height: 28, borderRadius: 7, background: `${cat.color}12`, border: `1px solid ${cat.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: cat.color }}>
+                <button onClick={() => openEdit(cat)} style={{ width: 28, height: 28, borderRadius: 7, background: `${cat.color}12`, border: `1px solid ${cat.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: cat.color }}>
                   <Edit2 size={12} />
                 </button>
-                <button onClick={() => setCategories((p) => p.filter((c) => c.id !== cat.id))} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#F87171' }}>
+                <button onClick={() => handleDelete(cat.id)} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#F87171' }}>
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -82,29 +105,31 @@ export default function Categories() {
         ))}
       </div>
 
-      {showAdd && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+      {showModal && editing && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && (setShowModal(false), setEditing(null))}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 440, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0 }}>Nova Categoria</h3>
-              <button onClick={() => setShowAdd(false)} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0 }}>
+                {editing.id != null ? 'Editar Categoria' : 'Nova Categoria'}
+              </h3>
+              <button onClick={() => { setShowModal(false); setEditing(null) }} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388' }}>
                 <X size={15} />
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nome</label>
-                <input className="input-field" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex: Proteção da Cabeça" />
+                <input className="input-field" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Ex: Proteção da Cabeça" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Descrição</label>
-                <input className="input-field" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Descrição da categoria" />
+                <input className="input-field" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} placeholder="Descrição da categoria" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Ícone</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {ICONS_LIST.map((ic) => (
-                    <button key={ic} onClick={() => setNewIcon(ic)} style={{ width: 36, height: 36, borderRadius: 9, border: newIcon === ic ? '2px solid #6366F1' : '1px solid rgba(255,255,255,0.1)', background: newIcon === ic ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                    <button key={ic} onClick={() => setEditing({ ...editing, icon: ic })} style={{ width: 36, height: 36, borderRadius: 9, border: editing.icon === ic ? '2px solid #6366F1' : '1px solid rgba(255,255,255,0.1)', background: editing.icon === ic ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                       {ic}
                     </button>
                   ))}
@@ -113,13 +138,15 @@ export default function Categories() {
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Cor</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {COLORS.map((c) => <button key={c} onClick={() => setNewColor(c)} style={{ width: 28, height: 28, borderRadius: 8, background: c, border: newColor === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: newColor === c ? `0 0 12px ${c}70` : 'none' }} />)}
+                  {COLORS.map((c) => <button key={c} onClick={() => setEditing({ ...editing, color: c })} style={{ width: 28, height: 28, borderRadius: 8, background: c, border: editing.color === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: editing.color === c ? `0 0 12px ${c}70` : 'none' }} />)}
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-              <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={handleAdd} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Criar Categoria</button>
+              <button onClick={() => { setShowModal(false); setEditing(null) }} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleSave} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                {editing.id != null ? 'Salvar Alterações' : 'Criar Categoria'}
+              </button>
             </div>
           </div>
         </div>

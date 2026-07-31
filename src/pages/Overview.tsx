@@ -7,7 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid,
 } from 'recharts'
-import { employees, epis, categories, movements, chartData } from '../data/mock'
+import { useSupabaseData } from '../hooks/useSupabaseData'
 
 function MetricCard({
   icon, label, value, trend, trendLabel, color, delay = 0,
@@ -108,6 +108,7 @@ function useRealtimeClock() {
 }
 
 export default function Overview() {
+  const { employees, epis, categories, movements, chartData, loading } = useSupabaseData()
   const now = useRealtimeClock()
   const lowStock = epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico')
   const activeEmployees = employees.filter((e) => e.status === 'Ativo')
@@ -132,12 +133,13 @@ export default function Overview() {
       {/* Status bar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.15)',
+        background: loading ? 'rgba(245,158,11,0.06)' : 'rgba(34,211,238,0.06)',
+        border: loading ? '1px solid rgba(245,158,11,0.15)' : '1px solid rgba(34,211,238,0.15)',
         borderRadius: 10, padding: '9px 16px',
       }}>
-        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22D3EE', boxShadow: '0 0 8px rgba(34,211,238,0.6)', flexShrink: 0, animation: 'pulse-glow 2s ease-in-out infinite' }} />
-        <span style={{ fontSize: 12.5, color: '#67E8F9', fontWeight: 500 }}>
-          Sistema sincronizado
+        <div style={{ width: 7, height: 7, borderRadius: '50%', background: loading ? '#F59E0B' : '#22D3EE', boxShadow: '0 0 8px rgba(34,211,238,0.6)', flexShrink: 0, animation: 'pulse-glow 2s ease-in-out infinite' }} />
+        <span style={{ fontSize: 12.5, color: loading ? '#FCD34D' : '#67E8F9', fontWeight: 500 }}>
+          {loading ? 'Sincronizando com o banco de dados...' : 'Sistema sincronizado'}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
           {dateStr} — {timeStr}

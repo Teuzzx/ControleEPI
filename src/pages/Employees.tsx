@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Plus, Edit2, Trash2, Eye, X, ChevronDown } from 'lucide-react'
-import { employees as initialEmployees, teams, roles, type Employee } from '../data/mock'
+import { useSupabaseData } from '../hooks/useSupabaseData'
+import type { Employee } from '../data/mock'
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const initials = name.split(' ').slice(0, 2).map((n) => n[0]).join('')
@@ -22,7 +23,7 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 type Mode = 'list' | 'view' | 'add' | 'edit'
 
 export default function Employees() {
-  const [employees, setEmployees] = useState(initialEmployees)
+  const { employees, departments, loading, addEmployee, updateEmployee, deleteEmployee } = useSupabaseData()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all')
   const [teamFilter, setTeamFilter] = useState('all')
@@ -44,9 +45,23 @@ export default function Employees() {
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   const openView = (emp: Employee) => { setSelected(emp); setMode('view') }
-  const openEdit = (emp: Employee) => { setSelected(emp); setMode('edit') }
+  const openEdit = (emp: Employee) => {
+    setSelected(emp)
+    setForm({
+      name: emp.name, cpf: emp.cpf, phone: emp.phone, registration: emp.registration,
+      role: emp.role, team: emp.team, sector: emp.sector, company: emp.company, status: emp.status,
+    })
+    setMode('edit')
+  }
   const closeModal = () => { setMode('list'); setSelected(null); setForm({}) }
-  const deleteEmployee = (id: number) => { setEmployees((prev) => prev.filter((e) => e.id !== id)); closeModal() }
+  const deleteEmployeeAction = async (id: number) => {
+    try {
+      await deleteEmployee(id)
+    } catch (err) {
+      alert(`Erro ao excluir: ${(err as Error).message}`)
+    }
+    closeModal()
+  }
 
   return (
     <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
@@ -58,7 +73,7 @@ export default function Employees() {
             Colaboradores
           </h2>
           <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>
-            {employees.filter(e => e.status === 'Ativo').length} ativos de {employees.length} cadastrados
+            {loading ? 'Carregando...' : `${employees.filter(e => e.status === 'Ativo').length} ativos de ${employees.length} cadastrados`}
           </p>
         </div>
         <button
@@ -117,7 +132,7 @@ export default function Employees() {
           <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#5C6388', pointerEvents: 'none' }} />
         </div>
 
-        {/* Team filter */}
+        {/* Department filter */}
         <div style={{ position: 'relative' }}>
           <select
             value={teamFilter}
@@ -127,11 +142,11 @@ export default function Employees() {
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 9,
               padding: '9px 32px 9px 14px', color: '#9BA3C4',
               fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer',
-              outline: 'none', minWidth: 140,
+              outline: 'none', minWidth: 160,
             }}
           >
-            <option value="all">Todas as Equipes</option>
-            {teams.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+            <option value="all">Todos os Departamentos</option>
+            {departments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
           </select>
           <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#5C6388', pointerEvents: 'none' }} />
         </div>
@@ -193,7 +208,7 @@ export default function Employees() {
                       {[
                         { icon: <Eye size={13} />, action: () => openView(emp), color: '#6366F1', title: 'Visualizar' },
                         { icon: <Edit2 size={13} />, action: () => openEdit(emp), color: '#22D3EE', title: 'Editar' },
-                        { icon: <Trash2 size={13} />, action: () => deleteEmployee(emp.id), color: '#F43F5E', title: 'Excluir' },
+                        { icon: <Trash2 size={13} />, action: () => deleteEmployeeAction(emp.id), color: '#F43F5E', title: 'Excluir' },
                       ].map(({ icon, action, color, title }) => (
                         <button key={title} onClick={action} title={title} style={{
                           width: 28, height: 28, borderRadius: 7,
@@ -309,13 +324,13 @@ export default function Employees() {
         </div>
       )}
 
-      {/* Add Modal */}
-      {mode === 'add' && (
+      {/* Add / Edit Modal */}
+      {(mode === 'add' || (mode === 'edit' && selected)) && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em' }}>
-                Novo Colaborador
+                {mode === 'edit' ? 'Editar Colaborador' : 'Novo Colaborador'}
               </h3>
               <button onClick={closeModal} style={{
                 width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
@@ -346,7 +361,7 @@ export default function Employees() {
               ))}
               <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Equipe</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Departamento</label>
                   <select
                     className="input-field"
                     style={{ appearance: 'none' }}
@@ -354,7 +369,7 @@ export default function Employees() {
                     onChange={(e) => setForm((prev: any) => ({ ...prev, team: e.target.value }))}
                   >
                     <option value="">Selecione...</option>
-                    {teams.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                    {departments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -373,26 +388,33 @@ export default function Employees() {
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={closeModal} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={() => {
+              <button onClick={async () => {
                 const f = form as any
                 if (!f.name?.trim()) return
-                const nextId = Math.max(...employees.map((e) => e.id)) + 1
-                setEmployees((prev) => [...prev, {
-                  id: nextId,
-                  name: f.name || 'Novo Colaborador',
-                  cpf: f.cpf || '000.000.000-00',
-                  phone: f.phone || '(00) 00000-0000',
-                  registration: f.registration || `MAT-${String(nextId).padStart(5, '0')}`,
-                  role: f.role || 'Sem cargo',
-                  team: f.team || 'Operações',
-                  sector: f.sector || 'Sem setor',
-                  company: f.company || 'Norion',
-                  admissionDate: new Date().toISOString().split('T')[0],
-                  status: f.status || 'Ativo',
-                }])
+                try {
+                  const data = {
+                    name: f.name,
+                    cpf: f.cpf || '000.000.000-00',
+                    phone: f.phone || '(00) 00000-0000',
+                    registration: f.registration || '',
+                    role: f.role || 'Sem cargo',
+                    department: f.team || '',
+                    sector: f.sector || 'Sem setor',
+                    company: f.company || 'Norion',
+                    status: f.status || 'Ativo',
+                  }
+                  if (mode === 'edit' && selected) {
+                    await updateEmployee(selected.id, data)
+                  } else {
+                    await addEmployee(data)
+                  }
+                } catch (err) {
+                  alert(`Erro ao salvar: ${(err as Error).message}`)
+                  return
+                }
                 setForm({})
                 closeModal()
-              }} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Salvar Colaborador</button>
+              }} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{mode === 'edit' ? 'Salvar Alterações' : 'Salvar Colaborador'}</button>
             </div>
           </div>
         </div>

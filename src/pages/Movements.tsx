@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Search, Activity, ChevronDown } from 'lucide-react'
-import { movements } from '../data/mock'
+import { useSupabaseData } from '../hooks/useSupabaseData'
 
 const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Entrega:   { bg: 'rgba(99,102,241,0.12)',  text: '#A5B4FC', border: 'rgba(99,102,241,0.25)' },
@@ -8,13 +8,15 @@ const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> 
   Troca:     { bg: 'rgba(245,158,11,0.12)',  text: '#FCD34D', border: 'rgba(245,158,11,0.25)' },
   Entrada:   { bg: 'rgba(16,185,129,0.12)',  text: '#4ADE80', border: 'rgba(16,185,129,0.25)' },
   Baixa:     { bg: 'rgba(244,63,94,0.12)',   text: '#F87171', border: 'rgba(244,63,94,0.25)' },
+  Distribuição: { bg: 'rgba(168,85,247,0.12)', text: '#D8B4FE', border: 'rgba(168,85,247,0.25)' },
 }
 
 const ICONS: Record<string, string> = {
-  Entrega: '📤', Devolução: '📥', Troca: '🔄', Entrada: '📦', Baixa: '🗑',
+  Entrega: '📤', Devolução: '📥', Troca: '🔄', Entrada: '📦', Baixa: '🗑', Distribuição: '🚚',
 }
 
 export default function Movements() {
+  const { movements, loading } = useSupabaseData()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
 
@@ -102,7 +104,9 @@ export default function Movements() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Carregando movimentações...</td></tr>
+              ) : filtered.length === 0 ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Nenhuma movimentação encontrada.</td></tr>
               ) : filtered.map((m) => {
                 const colors = TYPE_COLORS[m.type]
@@ -129,10 +133,15 @@ export default function Movements() {
                         background: m.operator === 'App Mobile' ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.04)',
                         color: m.operator === 'App Mobile' ? '#818CF8' : '#5C6388',
                         border: `1px solid ${m.operator === 'App Mobile' ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.07)'}`,
-                        fontFamily: 'var(--font-mono)',
+                        fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap',
                       }}>
                         {m.operator}
                       </span>
+                      {m.company && (
+                        <div style={{ fontSize: 10.5, color: '#3D4257', marginTop: 3, fontFamily: 'var(--font-mono)' }}>
+                          → {m.company}
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontSize: 12, color: '#3D4257', maxWidth: 180 }}>{m.notes || '—'}</td>
                   </tr>

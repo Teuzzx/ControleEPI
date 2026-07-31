@@ -1,14 +1,137 @@
 import { useState } from 'react'
-import { Search, Plus, Eye, X, Package, ChevronDown, ChevronRight } from 'lucide-react'
-import { epis as initialEpis, categories, type Epi } from '../data/mock'
+import { Search, Plus, Eye, X, Package, ChevronDown, ChevronRight, Edit2, Trash2, Save } from 'lucide-react'
+import { useSupabaseData } from '../hooks/useSupabaseData'
+import type { Epi } from '../data/mock'
+
+interface VariantRow {
+  color: string
+  size: string
+  quantity: string
+}
+
+interface EpiForm {
+  name: string
+  category: string
+  subcategory: string
+  manufacturer: string
+  supplier: string
+  description: string
+  caNumber: string
+  batchNumber: string
+  manufacturingDate: string
+  totalQuantity: string
+  minQuantity: string
+  location: string
+  notes: string
+}
+
+const EMPTY_FORM: EpiForm = {
+  name: '', category: '', subcategory: '', manufacturer: '', supplier: '',
+  description: '', caNumber: '', batchNumber: '', manufacturingDate: '',
+  totalQuantity: '', minQuantity: '', location: '', notes: '',
+}
 
 export default function Stock() {
-  const [epis] = useState(initialEpis)
+  const { epis, categories, loading, addEpi, updateEpi, deleteEpi } = useSupabaseData()
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selected, setSelected] = useState<Epi | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<Epi | null>(null)
+  const [form, setForm] = useState<EpiForm>(EMPTY_FORM)
+  const [variants, setVariants] = useState<VariantRow[]>([{ color: '', size: '', quantity: '' }])
+  const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const openAdd = () => {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setVariants([{ color: '', size: '', quantity: '' }])
+    setErrorMsg('')
+    setShowModal(true)
+  }
+
+  const openEdit = (epi: Epi) => {
+    setEditing(epi)
+    setForm({
+      name: epi.name,
+      category: epi.category,
+      subcategory: epi.subcategory,
+      manufacturer: epi.manufacturer,
+      supplier: epi.supplier,
+      description: epi.description,
+      caNumber: epi.caNumber || '',
+      batchNumber: epi.batchNumber,
+      manufacturingDate: epi.manufacturingDate,
+      totalQuantity: String(epi.totalQuantity),
+      minQuantity: String(epi.minQuantity),
+      location: epi.location,
+      notes: epi.notes || '',
+    })
+    setVariants(epi.variants.length > 0
+      ? epi.variants.map((v) => ({ color: v.color, size: v.size, quantity: String(v.quantity) }))
+      : [{ color: '', size: '', quantity: '' }])
+    setErrorMsg('')
+    setShowModal(true)
+  }
+
+  const set = (key: keyof EpiForm, val: string) => setForm((prev) => ({ ...prev, [key]: val }))
+
+  const setVariant = (idx: number, key: 'color' | 'size' | 'quantity', val: string) =>
+    setVariants((prev) => prev.map((v, i) => (i === idx ? { ...v, [key]: val } : v)))
+
+  const variantTotal = variants.reduce((s, v) => s + (parseInt(v.quantity) || 0), 0)
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      setErrorMsg('Informe o nome do EPI.')
+      return
+    }
+    const cleanVariants = variants
+      .map((v) => ({ color: v.color.trim(), size: v.size.trim(), quantity: parseInt(v.quantity) || 0 }))
+      .filter((v) => v.quantity > 0)
+    setSaving(true)
+    setErrorMsg('')
+    try {
+      const data = {
+        name: form.name,
+        category: form.category,
+        subcategory: form.subcategory,
+        manufacturer: form.manufacturer,
+        supplier: form.supplier,
+        description: form.description,
+        caNumber: form.caNumber,
+        batchNumber: form.batchNumber,
+        manufacturingDate: form.manufacturingDate,
+        totalQuantity: parseInt(form.totalQuantity) || 0,
+        minQuantity: parseInt(form.minQuantity) || 0,
+        location: form.location,
+        variants: cleanVariants,
+        notes: form.notes,
+      }
+      if (editing) {
+        await updateEpi(editing.id, data)
+      } else {
+        await addEpi(data)
+      }
+      setShowModal(false)
+    } catch (err) {
+      setErrorMsg((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (epi: Epi) => {
+    if (!window.confirm(`Excluir "${epi.name}" e suas variações?`)) return
+    try {
+      await deleteEpi(epi.id)
+    } catch (err) {
+      alert(`Erro ao excluir: ${(err as Error).message}`)
+    }
+  }
 
   const filtered = epis.filter((e) => {
     const q = search.toLowerCase()
@@ -34,10 +157,10 @@ export default function Stock() {
             Estoque de EPIs
           </h2>
           <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>
-            {epis.length} produtos cadastrados • {epis.reduce((s, e) => s + e.totalQuantity, 0).toLocaleString('pt-BR')} unidades totais
+            {loading ? 'Carregando...' : `${epis.length} produtos cadastrados • ${epis.reduce((s, e) => s + e.totalQuantity, 0).toLocaleString('pt-BR')} unidades totais`}
           </p>
         </div>
-        <button style={{
+        <button onClick={openAdd} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
           color: 'white', border: 'none', borderRadius: 10,
@@ -120,7 +243,31 @@ export default function Stock() {
                   }}>
                     <Package size={18} color="#818CF8" />
                   </div>
-                  <span className={`badge ${statusColor[epi.status]}`}>{epi.status}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button onClick={() => openEdit(epi)} title="Editar" style={{
+                      width: 28, height: 28, borderRadius: 7,
+                      background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', color: '#67E8F9', transition: 'background 0.15s',
+                    }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(34,211,238,0.2)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(34,211,238,0.1)' }}
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                    <button onClick={() => handleDelete(epi)} title="Excluir" style={{
+                      width: 28, height: 28, borderRadius: 7,
+                      background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', color: '#F87171', transition: 'background 0.15s',
+                    }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(244,63,94,0.2)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(244,63,94,0.1)' }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                    <span className={`badge ${statusColor[epi.status]}`}>{epi.status}</span>
+                  </div>
                 </div>
 
                 <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: '#C4C9E2', margin: '0 0 3px', letterSpacing: '-0.015em', lineHeight: 1.3 }}>
@@ -212,6 +359,142 @@ export default function Stock() {
           )
         })}
       </div>
+
+      {/* Add / Edit modal */}
+      {showModal && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 640, borderRadius: 20, padding: '32px', maxHeight: '92vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: '0 0 2px', letterSpacing: '-0.02em' }}>
+                  {editing ? 'Editar EPI' : 'Cadastrar EPI'}
+                </h3>
+                <span style={{ fontSize: 12, color: '#3D4257' }}>Ficha do produto, quantidades e variações</span>
+              </div>
+              <button onClick={() => setShowModal(false)} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#5C6388' }}>
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Basic info */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nome do EPI *</label>
+                <input className="input-field" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Ex: Calça de Segurança" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Categoria</label>
+                <select className="input-field" style={{ appearance: 'none' }} value={form.category} onChange={(e) => set('category', e.target.value)}>
+                  <option value="">Selecione...</option>
+                  {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Subcategoria</label>
+                <input className="input-field" value={form.subcategory} onChange={(e) => set('subcategory', e.target.value)} placeholder="Ex: Calça com elastano" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Fabricante</label>
+                <input className="input-field" value={form.manufacturer} onChange={(e) => set('manufacturer', e.target.value)} placeholder="Ex: 3M" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Fornecedor</label>
+                <input className="input-field" value={form.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder="Ex: Safety Plus Ltda" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Número CA</label>
+                <input className="input-field" value={form.caNumber} onChange={(e) => set('caNumber', e.target.value)} placeholder="Ex: 12345" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Lote</label>
+                <input className="input-field" value={form.batchNumber} onChange={(e) => set('batchNumber', e.target.value)} placeholder="Ex: L2024-001" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Data de Fabricação</label>
+                <input className="input-field" type="date" value={form.manufacturingDate} onChange={(e) => set('manufacturingDate', e.target.value)} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Local de Armazenamento</label>
+                <input className="input-field" value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="Ex: Almoxarifado A3" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Quantidade Total</label>
+                <input className="input-field" type="number" min={0} value={form.totalQuantity} onChange={(e) => set('totalQuantity', e.target.value)} placeholder="Ex: 100" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Estoque Mínimo</label>
+                <input className="input-field" type="number" min={0} value={form.minQuantity} onChange={(e) => set('minQuantity', e.target.value)} placeholder="Ex: 20" />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Descrição</label>
+                <input className="input-field" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Descrição do produto" />
+              </div>
+            </div>
+
+            {/* Variants */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Variações (tamanho / cor)</label>
+                <button onClick={() => setVariants((prev) => [...prev, { color: '', size: '', quantity: '' }])} style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  fontSize: 11.5, fontWeight: 600, color: '#A5B4FC',
+                  background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)',
+                  borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                }}>
+                  <Plus size={11} /> Adicionar variação
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {variants.map((v, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input className="input-field" value={v.color} onChange={(e) => setVariant(idx, 'color', e.target.value)} placeholder="Cor (opcional)" style={{ flex: 1 }} />
+                    <input className="input-field" value={v.size} onChange={(e) => setVariant(idx, 'size', e.target.value)} placeholder="Tamanho (ex: M, 42)" style={{ flex: 1 }} />
+                    <input className="input-field" type="number" min={0} value={v.quantity} onChange={(e) => setVariant(idx, 'quantity', e.target.value)} placeholder="Qtd" style={{ flex: 0.6, fontFamily: 'var(--font-mono)' }} />
+                    <button onClick={() => setVariants((prev) => prev.filter((_, i) => i !== idx))} disabled={variants.length === 1} title="Remover" style={{
+                      width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                      background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: variants.length === 1 ? 'not-allowed' : 'pointer', color: '#F87171', opacity: variants.length === 1 ? 0.35 : 1,
+                    }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
+                Soma das variações: <strong style={{ color: variantTotal > 0 ? '#4ADE80' : '#5C6388' }}>{variantTotal}</strong> · Total do produto: <strong style={{ color: '#E8EAF6' }}>{parseInt(form.totalQuantity) || 0}</strong>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Observações</label>
+              <input className="input-field" value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Observações (opcional)" />
+            </div>
+
+            {errorMsg && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 14,
+              }}>
+                <span style={{ fontSize: 12.5, color: '#F87171' }}>{errorMsg}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving} style={{
+                flex: 1, padding: '11px', borderRadius: 10,
+                background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none',
+                color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600,
+                cursor: 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                <Save size={14} /> {saving ? 'Salvando...' : editing ? 'Salvar Alterações' : 'Cadastrar EPI'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

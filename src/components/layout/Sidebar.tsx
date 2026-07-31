@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, Package, Tag, UsersRound, ArrowLeftRight,
-  BarChart3, Shield, ChevronLeft, ChevronRight, Bell, Settings, LogOut,
-  Warehouse, FolderOpen,
+  BarChart3, Shield, ChevronLeft, ChevronRight, ChevronDown, Bell, Settings, LogOut,
+  Warehouse, FolderOpen, Building2, Send, Boxes,
 } from 'lucide-react'
 
 export type Page =
@@ -10,37 +10,204 @@ export type Page =
   | 'employees'
   | 'stock'
   | 'categories'
-  | 'teams'
+  | 'departments'
   | 'movements'
   | 'reports'
   | 'entries'
+  | 'companies'
+  | 'distribution'
 
 interface NavItem {
   id: Page
   label: string
   icon: React.ReactNode
-  badge?: number
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'overview',   label: 'Dashboard',      icon: <LayoutDashboard size={17} />, },
-  { id: 'employees',  label: 'Colaboradores',  icon: <Users size={17} />, },
-  { id: 'stock',      label: 'Estoque',        icon: <Package size={17} />, badge: 3 },
-  { id: 'entries',    label: 'Entradas',       icon: <Warehouse size={17} />, },
-  { id: 'categories', label: 'Categorias',     icon: <FolderOpen size={17} />, },
-  { id: 'teams',      label: 'Equipes',        icon: <UsersRound size={17} />, },
-  { id: 'movements',  label: 'Movimentações',  icon: <ArrowLeftRight size={17} />, },
-  { id: 'reports',    label: 'Relatórios',     icon: <BarChart3 size={17} />, },
+interface NavGroup {
+  label: string
+  icon: React.ReactNode
+  items: NavItem[]
+  matrizOnly?: boolean
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Operacional',
+    icon: <Boxes size={15} />,
+    items: [
+      { id: 'employees',  label: 'Colaboradores',  icon: <Users size={17} /> },
+      { id: 'stock',      label: 'Estoque de EPIs', icon: <Package size={17} /> },
+      { id: 'entries',    label: 'Entradas',       icon: <Warehouse size={17} /> },
+      { id: 'categories', label: 'Categorias',     icon: <Tag size={17} /> },
+    ],
+  },
+  {
+    label: 'Organização',
+    icon: <UsersRound size={15} />,
+    items: [
+      { id: 'departments', label: 'Departamentos',  icon: <UsersRound size={17} /> },
+      { id: 'movements',   label: 'Movimentações',  icon: <ArrowLeftRight size={17} /> },
+      { id: 'reports',     label: 'Relatórios',     icon: <BarChart3 size={17} /> },
+    ],
+  },
+  {
+    label: 'Rede de Empresas',
+    icon: <Building2 size={15} />,
+    matrizOnly: true,
+    items: [
+      { id: 'companies',    label: 'Empresas',     icon: <Building2 size={17} /> },
+      { id: 'distribution', label: 'Distribuição', icon: <Send size={17} /> },
+    ],
+  },
 ]
+
+const DASHBOARD_ITEM: NavItem = { id: 'overview', label: 'Dashboard', icon: <LayoutDashboard size={17} /> }
 
 interface Props {
   current: Page
   onNavigate: (p: Page) => void
   onLogout: () => void
+  userName: string
+  userRole: 'matriz' | 'filial'
+  companyName: string
 }
 
-export default function Sidebar({ current, onNavigate, onLogout }: Props) {
+function initialsOf(name: string): string {
+  return name.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()
+}
+
+export default function Sidebar({ current, onNavigate, onLogout, userName, userRole, companyName }: Props) {
   const [collapsed, setCollapsed] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+
+  const visibleGroups = NAV_GROUPS.filter((g) => !g.matrizOnly || userRole === 'matriz')
+
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = { ...prev }
+      for (const group of visibleGroups) {
+        if (group.items.some((item) => item.id === current)) {
+          next[group.label] = true
+        }
+      }
+      return next
+    })
+  }, [current])
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }))
+  }
+
+  const renderItem = (item: NavItem, active: boolean) => (
+    <button
+      key={item.id}
+      onClick={() => onNavigate(item.id)}
+      className={`sidebar-nav-item${active ? ' active' : ''}`}
+      title={collapsed ? item.label : undefined}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: collapsed ? '9px 0' : '9px 12px',
+        borderRadius: 9,
+        border: 'none',
+        cursor: 'pointer',
+        background: active ? 'rgba(99,102,241,0.14)' : 'transparent',
+        color: active ? '#A5B4FC' : '#5C6388',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 13.5,
+        fontWeight: active ? 600 : 500,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        position: 'relative',
+        whiteSpace: 'nowrap',
+        letterSpacing: '-0.01em',
+        transition: 'background 0.15s, color 0.15s',
+      }}
+      onMouseEnter={(e) => {
+        if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#9BA3C4' }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#5C6388' }
+      }}
+    >
+      {active && !collapsed && (
+        <div style={{
+          position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+          width: 3, height: 20, borderRadius: '0 2px 2px 0',
+          background: 'linear-gradient(to bottom, #6366F1, #818CF8)',
+        }} />
+      )}
+      <span className="nav-icon" style={{ color: active ? '#6366F1' : '#3D4257', display: 'flex', flexShrink: 0 }}>
+        {item.icon}
+      </span>
+      {!collapsed && <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>}
+    </button>
+  )
+
+  const renderGroup = (group: NavGroup) => {
+    const open = openGroups[group.label] ?? false
+    const groupActive = group.items.some((item) => item.id === current)
+    return (
+      <div key={group.label} style={{ marginBottom: 2 }}>
+        <button
+          onClick={() => toggleGroup(group.label)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: collapsed ? '9px 0' : '9px 12px',
+            borderRadius: 9,
+            border: 'none',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: groupActive ? '#A5B4FC' : '#5C6388',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 13.5,
+            fontWeight: groupActive ? 600 : 500,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            whiteSpace: 'nowrap',
+            letterSpacing: '-0.01em',
+            transition: 'background 0.15s, color 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#9BA3C4' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = groupActive ? '#A5B4FC' : '#5C6388' }}
+          title={collapsed ? group.label : undefined}
+        >
+          <span className="nav-icon" style={{ color: groupActive ? '#6366F1' : '#3D4257', display: 'flex', flexShrink: 0 }}>
+            {group.icon}
+          </span>
+          {!collapsed && (
+            <>
+              <span style={{ flex: 1, textAlign: 'left' }}>{group.label}</span>
+              <ChevronDown
+                size={13}
+                style={{
+                  color: '#3D4257',
+                  transition: 'transform 0.2s ease',
+                  transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                }}
+              />
+            </>
+          )}
+        </button>
+        {open && !collapsed && (
+          <div style={{
+            marginLeft: 10,
+            paddingLeft: 18,
+            borderLeft: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            animation: 'fade-up 0.2s ease both',
+          }}>
+            {group.items.map((item) => renderItem(item, current === item.id))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <aside
@@ -100,70 +267,10 @@ export default function Sidebar({ current, onNavigate, onLogout }: Props) {
           </div>
         )}
 
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {NAV_ITEMS.map((item, i) => {
-            const active = current === item.id
-            return (
-              <li key={item.id}
-                style={{ animation: `sidebar-item-in 0.4s ease both`, animationDelay: `${i * 0.04}s` }}
-              >
-                <button
-                  onClick={() => onNavigate(item.id)}
-                  className={`sidebar-nav-item${active ? ' active' : ''}`}
-                  title={collapsed ? item.label : undefined}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: collapsed ? '9px 0' : '9px 12px',
-                    borderRadius: 9,
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: active ? 'rgba(99,102,241,0.14)' : 'transparent',
-                    color: active ? '#A5B4FC' : '#5C6388',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 13.5,
-                    fontWeight: active ? 600 : 500,
-                    justifyContent: collapsed ? 'center' : 'flex-start',
-                    position: 'relative',
-                    whiteSpace: 'nowrap',
-                    letterSpacing: '-0.01em',
-                  }}
-                >
-                  {/* Active indicator */}
-                  {active && !collapsed && (
-                    <div style={{
-                      position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
-                      width: 3, height: 20, borderRadius: '0 2px 2px 0',
-                      background: 'linear-gradient(to bottom, #6366F1, #818CF8)',
-                    }} />
-                  )}
-
-                  <span className="nav-icon" style={{ color: active ? '#6366F1' : '#3D4257', display: 'flex', flexShrink: 0 }}>
-                    {item.icon}
-                  </span>
-
-                  {!collapsed && (
-                    <>
-                      <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
-                      {item.badge && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                          background: 'rgba(239,68,68,0.15)', color: '#F87171',
-                          border: '1px solid rgba(239,68,68,0.2)',
-                          padding: '1px 7px', borderRadius: 10,
-                        }}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {renderItem(DASHBOARD_ITEM, current === DASHBOARD_ITEM.id)}
+          {visibleGroups.map(renderGroup)}
+        </div>
       </nav>
 
       {/* Bottom */}
@@ -210,28 +317,24 @@ export default function Sidebar({ current, onNavigate, onLogout }: Props) {
           borderRadius: 10,
           background: 'rgba(255,255,255,0.025)',
           justifyContent: collapsed ? 'center' : 'flex-start',
-          cursor: 'pointer',
           transition: 'background 0.15s',
-        }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.045)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
-        >
+        }}>
           <div style={{
             width: 30, height: 30, borderRadius: 9,
-            background: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+            background: userRole === 'matriz' ? 'linear-gradient(135deg, #4F46E5, #7C3AED)' : 'linear-gradient(135deg, #0E7490, #22D3EE)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 12, fontWeight: 700, color: 'white',
             flexShrink: 0,
           }}>
-            JF
+            {initialsOf(userName)}
           </div>
           {!collapsed && (
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: '#9BA3C4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Juliana Ferreira
+                {userName}
               </div>
               <div style={{ fontSize: 10.5, color: '#3D4257', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Administrador
+                {userRole === 'matriz' ? 'Matriz • Administrador' : companyName}
               </div>
             </div>
           )}

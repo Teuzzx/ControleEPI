@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { FileText, Download, ChevronDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
-import { employees, epis, movements, categories } from '../data/mock'
+import { useSupabaseData } from '../hooks/useSupabaseData'
 
 const REPORT_TYPES = [
   { id: 'stock',         label: 'Estoque Atual',          icon: '📦', desc: 'Situação atual de todos os EPIs' },
@@ -41,20 +41,21 @@ function generateCSV(filename: string, headers: string[], rows: string[][]) {
 }
 
 export default function Reports() {
+  const { employees, epis, movements, loading } = useSupabaseData()
   const [selectedReport, setSelectedReport] = useState('stock')
   const [period, setPeriod] = useState('month')
   const [generating, setGenerating] = useState(false)
 
-  const lowStockItems = useMemo(() => epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico'), [])
-  const totalDeliveries = useMemo(() => movements.filter((m) => m.type === 'Entrega').length, [])
-  const totalStock = useMemo(() => epis.reduce((s, e) => s + e.totalQuantity, 0), [])
+  const lowStockItems = useMemo(() => epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico'), [epis])
+  const totalDeliveries = useMemo(() => movements.filter((m) => m.type === 'Entrega').length, [movements])
+  const totalStock = useMemo(() => epis.reduce((s, e) => s + e.totalQuantity, 0), [epis])
 
   const topProducts = useMemo(() =>
     [...epis]
       .sort((a, b) => b.totalQuantity - a.totalQuantity)
       .slice(0, 7)
       .map((e) => ({ name: e.name.length > 18 ? e.name.slice(0, 16) + '...' : e.name, qty: e.totalQuantity })),
-    []
+    [epis]
   )
 
   const handleGenerate = () => {

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Eye, EyeOff, Shield, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { login, type SessionUser } from '../../lib/auth'
 
 interface Props {
-  onLogin: () => void
+  onLogin: (user: SessionUser) => void
 }
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
@@ -189,16 +190,14 @@ export default function LoginPage({ onLogin }: Props) {
     setAuthState('loading')
     setErrorMsg('')
 
-    // Simulate auth — accept any non-empty credentials
-    await new Promise((r) => setTimeout(r, 1800))
-
-    if (password.length < 3) {
-      setAuthState('error')
-      setErrorMsg('Credenciais inválidas. Verifique e tente novamente.')
-    } else {
+    try {
+      const user = await login(identifier, password)
       setAuthState('success')
       await new Promise((r) => setTimeout(r, 800))
-      onLogin()
+      onLogin(user)
+    } catch (err) {
+      setAuthState('error')
+      setErrorMsg((err as Error).message)
     }
   }
 
@@ -636,6 +635,39 @@ export default function LoginPage({ onLogin }: Props) {
                 Acesso restrito
               </span>
               <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+            </div>
+
+            {/* Demo credentials */}
+            <div style={{
+              marginTop: 16,
+              background: 'rgba(99,102,241,0.06)',
+              border: '1px solid rgba(99,102,241,0.15)',
+              borderRadius: 12,
+              padding: '12px 16px',
+            }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#818CF8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                Acesso de demonstração
+              </div>
+              {[
+                { label: 'Matriz', email: 'admin@norion.com', pass: 'admin123' },
+                { label: 'Filial', email: 'filial@norion.com', pass: 'filial123' },
+              ].map((acc) => (
+                <button
+                  key={acc.label}
+                  onClick={() => { setIdentifier(acc.email); setPassword(acc.pass) }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                    borderRadius: 8, padding: '8px 12px', marginBottom: 6, cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)', fontSize: 11.5, transition: 'border-color 0.15s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
+                >
+                  <span style={{ color: '#5C6388' }}>{acc.label}: {acc.email}</span>
+                  <span style={{ color: '#818CF8', fontWeight: 700 }}>{acc.pass}</span>
+                </button>
+              ))}
             </div>
           </div>
 
