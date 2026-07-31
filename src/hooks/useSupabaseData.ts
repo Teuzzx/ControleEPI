@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase, createCompanyClient } from '../lib/supabase'
+import { createCompanyClient } from '../lib/supabase'
 import { useDataClient } from '../lib/clientContext'
 import type {
   Employee, Department, Category, Epi, Movement, StockEntry,
@@ -31,7 +31,7 @@ interface DbEmployee {
 interface DbEpi {
   id: number; name: string; category_id: number | null; subcategory: string
   manufacturer: string; supplier: string; description: string; ca_number: string
-  batch_number: string; manufacturing_date: string; total_quantity: number
+  ca_expiry: string; batch_number: string; manufacturing_date: string; total_quantity: number
   min_quantity: number; location: string; notes: string
 }
 interface DbVariant {
@@ -167,6 +167,7 @@ export function useSupabaseData() {
         quantity: v.quantity,
         minQuantity: v.min_quantity,
       }))
+      const variantSum = variants.reduce((s, v) => s + v.quantity, 0)
       return {
         id: e.id,
         name: e.name,
@@ -176,12 +177,13 @@ export function useSupabaseData() {
         supplier: e.supplier,
         description: e.description,
         caNumber: e.ca_number || undefined,
+        caExpiry: e.ca_expiry || undefined,
         batchNumber: e.batch_number,
         manufacturingDate: formatDate(e.manufacturing_date),
-        totalQuantity: e.total_quantity,
+        totalQuantity: variants.length > 0 ? variantSum : e.total_quantity,
         minQuantity: e.min_quantity,
         location: e.location,
-        status: computeStatus(e.total_quantity, e.min_quantity),
+        status: computeStatus(variants.length > 0 ? variantSum : e.total_quantity, e.min_quantity),
         variants,
         notes: e.notes || undefined,
       }
@@ -249,6 +251,19 @@ export function useSupabaseData() {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  // Realtime: atualiza os dados quando qualquer tabela mudar no banco.
+  useEffect(() => {
+    const channel = client
+      .channel('realtime-data')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        refresh()
+      })
+      .subscribe()
+    return () => {
+      client.removeChannel(channel)
+    }
+  }, [client, refresh])
 
   const addEmployee = useCallback(async (data: {
     name: string; cpf?: string; phone?: string; registration?: string; role?: string
@@ -360,12 +375,23 @@ export function useSupabaseData() {
 
   const addEpi = useCallback(async (data: {
     name: string; category?: string; subcategory?: string; manufacturer?: string
-    supplier?: string; description?: string; caNumber?: string; batchNumber?: string
-    manufacturingDate?: string; totalQuantity: number; minQuantity?: number
+    supplier?: string; description?: string; caNumber?: string; caExpiry?: string
+    batchNumber?: string; manufacturingDate?: string; totalQuantity: number; minQuantity?: number
     location?: string; variants?: EpiVariantInput[]; notes?: string
   }) => {
     if (!data.name.trim()) throw new Error('Informe o nome do EPI.')
+
+    const { data: existing } = await client
+      .from('epis')
+      .select('id')
+      .ilike('name', data.name.trim())
+      .maybeSingle()
+    if (existing) throw new Error(`Já existe um EPI cadastrado com o nome "${data.name.trim()}".`)
+
     const categoryId = categories.find((c) => c.name === data.category)?.id ?? null
+    const cleanVariants = (data.variants ?? []).filter((v) => v.quantity > 0)
+    const total = cleanVariants.reduce((s, v) => s + v.quantity, 0)
+
     const { data: row, error } = await client.from('epis').insert({
       name: data.name.trim(),
       category_id: categoryId,
@@ -374,24 +400,26 @@ export function useSupabaseData() {
       supplier: data.supplier || '',
       description: data.description || '',
       ca_number: data.caNumber || '',
+      ca_expiry: data.caExpiry || null,
       batch_number: data.batchNumber || '',
       manufacturing_date: data.manufacturingDate || null,
-      total_quantity: data.totalQuantity || 0,
+      total_quantity: total > 0 ? total : (data.totalQuantity || 0),
       min_quantity: data.minQuantity ?? 0,
       location: data.location || '',
       notes: data.notes || '',
     }).select('id').single()
     if (error) throw new Error(error.message)
 
-    for (const v of data.variants ?? []) {
-      if (v.quantity <= 0) continue
-      const { error: vErr } = await client.from('epi_variants').insert({
-        epi_id: row.id,
-        color: v.color || '',
-        size: v.size || '',
-        quantity: v.quantity,
-        min_quantity: 0,
-      })
+    if (cleanVariants.length > 0) {
+      const { error: vErr } = await client.from('epi_variants').insert(
+        cleanVariants.map((v) => ({
+          epi_id: row.id,
+          color: v.color || '',
+          size: v.size || '',
+          quantity: v.quantity,
+          min_quantity: 0,
+        })),
+      )
       if (vErr) throw new Error(vErr.message)
     }
     await refresh()
@@ -399,11 +427,22 @@ export function useSupabaseData() {
 
   const updateEpi = useCallback(async (id: number, data: {
     name: string; category?: string; subcategory?: string; manufacturer?: string
-    supplier?: string; description?: string; caNumber?: string; batchNumber?: string
-    manufacturingDate?: string; totalQuantity: number; minQuantity?: number
+    supplier?: string; description?: string; caNumber?: string; caExpiry?: string
+    batchNumber?: string; manufacturingDate?: string; totalQuantity: number; minQuantity?: number
     location?: string; variants?: EpiVariantInput[]; notes?: string
   }) => {
+    const { data: existing } = await client
+      .from('epis')
+      .select('id')
+      .ilike('name', data.name.trim())
+      .neq('id', id)
+      .maybeSingle()
+    if (existing) throw new Error(`Já existe um EPI cadastrado com o nome "${data.name.trim()}".`)
+
     const categoryId = categories.find((c) => c.name === data.category)?.id ?? null
+    const cleanVariants = (data.variants ?? []).filter((v) => v.quantity > 0)
+    const total = cleanVariants.reduce((s, v) => s + v.quantity, 0)
+
     const { error } = await client.from('epis').update({
       name: data.name,
       category_id: categoryId,
@@ -412,35 +451,51 @@ export function useSupabaseData() {
       supplier: data.supplier || '',
       description: data.description || '',
       ca_number: data.caNumber || '',
+      ca_expiry: data.caExpiry || null,
       batch_number: data.batchNumber || '',
       manufacturing_date: data.manufacturingDate || null,
-      total_quantity: data.totalQuantity || 0,
+      total_quantity: total > 0 ? total : (data.totalQuantity || 0),
       min_quantity: data.minQuantity ?? 0,
       location: data.location || '',
       notes: data.notes || '',
     }).eq('id', id)
     if (error) throw new Error(error.message)
 
-    for (const v of data.variants ?? []) {
-      if (v.quantity <= 0) continue
-      const { data: existing } = await client
+    if (cleanVariants.length > 0) {
+      const { data: existingVariants } = await client
         .from('epi_variants')
-        .select('id, quantity')
+        .select('id, color, size, quantity')
         .eq('epi_id', id)
-        .eq('color', v.color || '')
-        .eq('size', v.size || '')
-        .maybeSingle()
-      if (existing) {
-        await client.from('epi_variants').update({ quantity: v.quantity }).eq('id', existing.id)
-      } else {
-        await client.from('epi_variants').insert({
-          epi_id: id,
-          color: v.color || '',
-          size: v.size || '',
-          quantity: v.quantity,
-          min_quantity: 0,
-        })
-      }
+
+      const existingMap = new Map(
+        (existingVariants ?? []).map((v) => [`${v.color || ''}|${v.size || ''}`, v]),
+      )
+
+      const toUpdate = cleanVariants.filter((v) => {
+        const found = existingMap.get(`${v.color || ''}|${v.size || ''}`)
+        return found && found.quantity !== v.quantity
+      })
+      const toInsert = cleanVariants.filter((v) => !existingMap.has(`${v.color || ''}|${v.size || ''}`))
+
+      const results = await Promise.all([
+        ...toUpdate.map(async (v) => {
+          const found = existingMap.get(`${v.color || ''}|${v.size || ''}`)
+          return client.from('epi_variants').update({ quantity: v.quantity }).eq('id', found!.id)
+        }),
+        toInsert.length > 0
+          ? client.from('epi_variants').insert(
+              toInsert.map((v) => ({
+                epi_id: id,
+                color: v.color || '',
+                size: v.size || '',
+                quantity: v.quantity,
+                min_quantity: 0,
+              })),
+            )
+          : Promise.resolve({ error: null }),
+      ])
+      const failed = results.find((r) => r.error)
+      if (failed?.error) throw new Error(failed.error.message)
     }
     await refresh()
   }, [refresh, client, categories])
@@ -461,16 +516,40 @@ export function useSupabaseData() {
     const total = data.variants.reduce((s, v) => s + v.quantity, 0)
     if (total <= 0) throw new Error('Informe ao menos uma quantidade.')
 
-    const epiRow = await client
+    const epiName = data.epi.trim()
+
+    const epiQuery = await client
       .from('epis')
       .select('id, name, total_quantity')
-      .eq('name', data.epi)
+      .eq('name', epiName)
       .maybeSingle()
 
-    for (const v of data.variants) {
-      const { error } = await client.from('stock_entries').insert({
-        epi_id: epiRow.data?.id ?? null,
-        epi_name: data.epi,
+    let epiRow: { id: number; name: string; total_quantity: number } | null = epiQuery.data ?? null
+
+    if (!epiRow) {
+      const { data: created, error: createErr } = await client.from('epis').insert({
+        name: epiName,
+        category_id: null,
+        subcategory: '',
+        manufacturer: data.manufacturer || '',
+        supplier: data.supplier || '',
+        description: '',
+        ca_number: '',
+        batch_number: data.batch || '',
+        total_quantity: 0,
+        min_quantity: 0,
+        location: '',
+      }).select('id').single()
+      if (createErr) throw new Error(`Não foi possível cadastrar o EPI "${epiName}": ${createErr.message}`)
+      epiRow = { id: created.id, name: epiName, total_quantity: 0 }
+    }
+
+    const epiId = epiRow.id
+
+    const { error: entryErr } = await client.from('stock_entries').insert(
+      data.variants.map((v) => ({
+        epi_id: epiId,
+        epi_name: epiName,
         manufacturer: data.manufacturer || '',
         supplier: data.supplier || '',
         batch: data.batch || '',
@@ -478,51 +557,57 @@ export function useSupabaseData() {
         color: v.color || '',
         size: v.size || '',
         notes: data.notes || '',
+      })),
+    )
+    if (entryErr) throw new Error(entryErr.message)
+
+    const { error: updErr } = await client
+      .from('epis')
+      .update({ total_quantity: (epiRow.total_quantity ?? 0) + total })
+      .eq('id', epiId)
+    if (updErr) throw new Error(updErr.message)
+
+    const { data: existingVariants } = await client
+      .from('epi_variants')
+      .select('id, color, size, quantity')
+      .eq('epi_id', epiId)
+
+    const existingMap = new Map(
+      (existingVariants ?? []).map((v) => [`${v.color || ''}|${v.size || ''}`, v]),
+    )
+
+    const toUpdate = data.variants
+      .filter((v) => existingMap.has(`${v.color || ''}|${v.size || ''}`))
+      .map((v) => {
+        const found = existingMap.get(`${v.color || ''}|${v.size || ''}`)
+        return client.from('epi_variants').update({ quantity: found!.quantity + v.quantity }).eq('id', found!.id)
       })
-      if (error) throw new Error(error.message)
-    }
+    const toInsert = data.variants
+      .filter((v) => !existingMap.has(`${v.color || ''}|${v.size || ''}`))
+      .map((v) => ({
+        epi_id: epiId,
+        color: v.color || '',
+        size: v.size || '',
+        quantity: v.quantity,
+        min_quantity: 0,
+      }))
 
-    if (epiRow.data) {
-      const { error: updErr } = await client
-        .from('epis')
-        .update({ total_quantity: (epiRow.data.total_quantity ?? 0) + total })
-        .eq('id', epiRow.data.id)
-      if (updErr) throw new Error(updErr.message)
+    const results = await Promise.all([
+      ...toUpdate,
+      toInsert.length > 0 ? client.from('epi_variants').insert(toInsert) : Promise.resolve({ error: null }),
+    ])
+    const failed = results.find((r) => r.error)
+    if (failed?.error) throw new Error(failed.error.message)
 
-      for (const v of data.variants) {
-        const { data: existing } = await client
-          .from('epi_variants')
-          .select('id, quantity')
-          .eq('epi_id', epiRow.data.id)
-          .eq('color', v.color || '')
-          .eq('size', v.size || '')
-          .maybeSingle()
-
-        if (existing) {
-          await client
-            .from('epi_variants')
-            .update({ quantity: existing.quantity + v.quantity })
-            .eq('id', existing.id)
-        } else {
-          await client.from('epi_variants').insert({
-            epi_id: epiRow.data.id,
-            color: v.color || '',
-            size: v.size || '',
-            quantity: v.quantity,
-            min_quantity: 0,
-          })
-        }
-      }
-
-      await client.from('movements').insert({
-        type: 'Entrada',
-        employee_name: '—',
-        epi_name: data.epi,
-        quantity: total,
-        operator: 'Sistema Web',
-        notes: `Entrada de estoque: ${data.variants.map((v) => `${v.size || v.color || 'Único'} x${v.quantity}`).join(', ')}`,
-      })
-    }
+    const { error: movErr } = await client.from('movements').insert({
+      type: 'Entrada',
+      employee_name: '—',
+      epi_name: epiName,
+      quantity: total,
+      operator: 'Sistema Web',
+      notes: `Entrada de estoque: ${data.variants.map((v) => `${v.size || v.color || 'Único'} x${v.quantity}`).join(', ')}`,
+    })
+    if (movErr) throw new Error(movErr.message)
 
     await refresh()
   }, [refresh, client])
@@ -541,119 +626,211 @@ export function useSupabaseData() {
     if (total <= 0) throw new Error('Informe ao menos uma quantidade.')
 
     const target = createCompanyClient(params.targetUrl, params.targetKey)
+    const detail = params.variants.map((v) => `${v.size || v.color || 'Único'} x${v.quantity}`).join(', ')
 
-    const epiRow = await target
+    // ── 1) Pré-validação: estoque da matriz por variação ──
+    const matrizEpi = await client
       .from('epis')
-      .select('id, name, total_quantity')
+      .select('id, total_quantity')
       .eq('name', params.epi)
       .maybeSingle()
+    if (!matrizEpi.data) throw new Error(`EPI "${params.epi}" não encontrado no estoque da matriz.`)
 
-    if (!epiRow.data) {
-      const { error } = await target.from('epis').insert({
-        name: params.epi,
-        subcategory: '',
-        manufacturer: '',
-        supplier: '',
-        description: '',
-        ca_number: '',
-        batch_number: '',
-        total_quantity: total,
-        min_quantity: 0,
-        location: '',
-      })
-      if (error) throw new Error(`Não foi possível registrar o EPI na filial: ${error.message}`)
+    const { data: matrizVariants } = await client
+      .from('epi_variants')
+      .select('id, color, size, quantity')
+      .eq('epi_id', matrizEpi.data.id)
+
+    const mvList = matrizVariants ?? []
+    if (mvList.length === 0) {
+      if ((matrizEpi.data.total_quantity ?? 0) < total) {
+        throw new Error(`Estoque insuficiente na matriz (disponível: ${matrizEpi.data.total_quantity}).`)
+      }
     } else {
-      const { error: updErr } = await target
-        .from('epis')
-        .update({ total_quantity: (epiRow.data.total_quantity ?? 0) + total })
-        .eq('id', epiRow.data.id)
-      if (updErr) throw new Error(updErr.message)
-
       for (const v of params.variants) {
-        const { data: existing } = await target
-          .from('epi_variants')
-          .select('id, quantity')
-          .eq('epi_id', epiRow.data.id)
-          .eq('color', v.color || '')
-          .eq('size', v.size || '')
-          .maybeSingle()
-
-        if (existing) {
-          await target
-            .from('epi_variants')
-            .update({ quantity: existing.quantity + v.quantity })
-            .eq('id', existing.id)
-        } else {
-          await target.from('epi_variants').insert({
-            epi_id: epiRow.data.id,
-            color: v.color || '',
-            size: v.size || '',
-            quantity: v.quantity,
-            min_quantity: 0,
-          })
+        const mv = mvList.find((x) => (x.color ?? '') === v.color && (x.size ?? '') === v.size)
+        if (!mv) throw new Error(`Variação ${v.size || v.color || 'Único'} de "${params.epi}" não existe no estoque da matriz.`)
+        if (mv.quantity < v.quantity) {
+          throw new Error(`Estoque insuficiente da variação ${v.size || v.color || 'Único'} (disponível: ${mv.quantity}).`)
         }
       }
     }
 
-    const detail = params.variants.map((v) => `${v.size || v.color || 'Único'} x${v.quantity}`).join(', ')
-    const targetEpiId = epiRow.data?.id ?? null
-
-    await target.from('stock_entries').insert({
-      epi_id: targetEpiId,
-      epi_name: params.epi,
-      manufacturer: '',
-      supplier: '',
-      batch: '',
-      quantity: total,
-      color: '',
-      size: '',
-      notes: `Distribuição da ${params.matrizName}: ${detail}`,
-      company_name: params.matrizName,
-    })
-
-    await target.from('notifications').insert({
-      type: 'distribuicao',
-      title: 'Distribuição da Matriz',
-      message: `Chegaram ${total} unidade(s) de ${params.epi} (${detail}).`,
-    })
-
-    await target.from('movements').insert({
-      type: 'Entrada',
-      employee_name: '—',
-      epi_name: params.epi,
-      quantity: total,
-      operator: 'Matriz',
-      notes: `Distribuição da ${params.matrizName}`,
-      company_name: params.matrizName,
-    })
-
-    const matrizEpi = await client.from('epis').select('id, total_quantity').eq('name', params.epi).maybeSingle()
-    if (matrizEpi.data) {
-      const { error: matrizErr } = await client
-        .from('epis')
-        .update({ total_quantity: Math.max(0, (matrizEpi.data.total_quantity ?? 0) - total) })
-        .eq('id', matrizEpi.data.id)
-      if (matrizErr) throw new Error(matrizErr.message)
+    // ── 2) Execução com log de compensação (rollback em caso de falha) ──
+    const undos: Array<() => Promise<void>> = []
+    const track = async <T,>(undo: () => Promise<void>, run: () => Promise<T>): Promise<T> => {
+      const result = await run()
+      undos.push(undo)
+      return result
     }
 
-    const { error: movErr } = await client.from('movements').insert({
-      type: 'Distribuição',
-      employee_name: '—',
-      epi_name: params.epi,
-      quantity: total,
-      operator: 'Sistema Web',
-      notes: `Enviado para ${params.targetName}: ${detail}`,
-      company_name: params.targetName,
-    })
-    if (movErr) throw new Error(movErr.message)
+    try {
+      // ── Filial: EPI ──
+      const targetEpi = await target.from('epis').select('id, total_quantity').eq('name', params.epi).maybeSingle()
+      let targetEpiId: number | null = targetEpi.data?.id ?? null
 
-    await client.from('notifications').insert({
-      type: 'distribuicao',
-      title: 'Distribuição concluída',
-      message: `${total} unidade(s) de ${params.epi} enviadas para ${params.targetName}.`,
-    })
+      if (!targetEpi.data) {
+        const inserted = await track(
+          async () => { if (targetEpiId != null) await target.from('epis').delete().eq('id', targetEpiId) },
+          async () => {
+            const { data, error } = await target.from('epis').insert({
+              name: params.epi,
+              subcategory: '',
+              manufacturer: '',
+              supplier: '',
+              description: '',
+              ca_number: '',
+              batch_number: '',
+              total_quantity: total,
+              min_quantity: 0,
+              location: '',
+            }).select('id').single()
+            if (error) throw new Error(`Não foi possível registrar o EPI na filial: ${error.message}`)
+            return data.id
+          },
+        )
+        targetEpiId = inserted
+      } else {
+        const oldTotal = targetEpi.data.total_quantity ?? 0
+        await track(
+          async () => { await target.from('epis').update({ total_quantity: oldTotal }).eq('id', targetEpiId!) },
+          async () => {
+            const { error } = await target.from('epis').update({ total_quantity: oldTotal + total }).eq('id', targetEpiId!)
+            if (error) throw new Error(error.message)
+          },
+        )
+      }
 
-    await refresh()
+      // ── Filial: variantes ──
+      const { data: targetVariants } = await target
+        .from('epi_variants')
+        .select('id, color, size, quantity')
+        .eq('epi_id', targetEpiId)
+
+      const targetMap = new Map(
+        (targetVariants ?? []).map((v) => [`${v.color || ''}|${v.size || ''}`, v]),
+      )
+
+      const toUpdate = params.variants
+        .filter((v) => targetMap.has(`${v.color || ''}|${v.size || ''}`))
+        .map((v) => {
+          const found = targetMap.get(`${v.color || ''}|${v.size || ''}`)
+          const oldQty = found!.quantity
+          return track(
+            async () => { await target.from('epi_variants').update({ quantity: oldQty }).eq('id', found!.id) },
+            async () => {
+              const { error } = await target.from('epi_variants').update({ quantity: oldQty + v.quantity }).eq('id', found!.id)
+              if (error) throw new Error(error.message)
+            },
+          )
+        })
+      const toInsert = params.variants
+        .filter((v) => !targetMap.has(`${v.color || ''}|${v.size || ''}`))
+        .map((v) => ({ epi_id: targetEpiId, color: v.color || '', size: v.size || '', quantity: v.quantity, min_quantity: 0 }))
+
+      if (toInsert.length > 0) {
+        const { data: insertedRows, error: insErr } = await target.from('epi_variants').insert(toInsert).select('id')
+        if (insErr) throw new Error(insErr.message)
+        undos.push(async () => {
+          const ids = (insertedRows ?? []).map((r) => r.id)
+          if (ids.length > 0) await target.from('epi_variants').delete().in('id', ids)
+        })
+      }
+      await Promise.all(toUpdate)
+
+      // ── Filial: entrada, notificação e movimento ──
+      const { error: seErr } = await target.from('stock_entries').insert({
+        epi_id: targetEpiId,
+        epi_name: params.epi,
+        manufacturer: '',
+        supplier: '',
+        batch: '',
+        quantity: total,
+        color: '',
+        size: '',
+        notes: `Distribuição da ${params.matrizName}: ${detail}${params.note ? ` — ${params.note}` : ''}`,
+        company_name: params.matrizName,
+      })
+      if (seErr) throw new Error(seErr.message)
+
+      const { data: notifRow, error: notifErr } = await target.from('notifications').insert({
+        type: 'distribuicao',
+        title: 'Distribuição da Matriz',
+        message: `Chegaram ${total} unidade(s) de ${params.epi} (${detail}).`,
+      }).select('id').single()
+      if (notifErr) throw new Error(notifErr.message)
+
+      const { data: targetMov, error: tmovErr } = await target.from('movements').insert({
+        type: 'Entrada',
+        employee_name: '—',
+        epi_name: params.epi,
+        quantity: total,
+        operator: 'Matriz',
+        notes: `Distribuição da ${params.matrizName}${params.note ? ` — ${params.note}` : ''}`,
+        company_name: params.matrizName,
+      }).select('id').single()
+      if (tmovErr) throw new Error(tmovErr.message)
+
+      undos.push(async () => {
+        await target.from('notifications').delete().eq('id', notifRow.id)
+        await target.from('movements').delete().eq('id', targetMov.id)
+      })
+
+      // ── Matriz: baixa no estoque e nas variantes ──
+      const oldMatrizTotal = matrizEpi.data.total_quantity ?? 0
+      const oldMvQuantities = new Map(mvList.map((mv) => [mv.id, mv.quantity]))
+      await track(
+        async () => { await client.from('epis').update({ total_quantity: oldMatrizTotal }).eq('id', matrizEpi.data!.id) },
+        async () => {
+          const { error } = await client.from('epis').update({ total_quantity: Math.max(0, oldMatrizTotal - total) }).eq('id', matrizEpi.data!.id)
+          if (error) throw new Error(error.message)
+        },
+      )
+
+      const matrizUndoUpdates = mvList.map((mv) =>
+        track(
+          async () => { await client.from('epi_variants').update({ quantity: oldMvQuantities.get(mv.id)! }).eq('id', mv.id) },
+          async () => {
+            const targetQty = params.variants.find((v) => (v.color || '') === (mv.color ?? '') && (v.size || '') === (mv.size ?? ''))?.quantity ?? 0
+            if (targetQty > 0) {
+              const { error } = await client.from('epi_variants').update({ quantity: Math.max(0, mv.quantity - targetQty) }).eq('id', mv.id)
+              if (error) throw new Error(error.message)
+            }
+          },
+        ))
+      await Promise.all(matrizUndoUpdates)
+
+      // ── Matriz: movimento e notificação ──
+      const { data: movRow, error: movErr } = await client.from('movements').insert({
+        type: 'Distribuição',
+        employee_name: '—',
+        epi_name: params.epi,
+        quantity: total,
+        operator: 'Sistema Web',
+        notes: `Enviado para ${params.targetName}: ${detail}${params.note ? ` — ${params.note}` : ''}`,
+        company_name: params.targetName,
+      }).select('id').single()
+      if (movErr) throw new Error(movErr.message)
+
+      const { data: matrizNotif, error: mnErr } = await client.from('notifications').insert({
+        type: 'distribuicao',
+        title: 'Distribuição concluída',
+        message: `${total} unidade(s) de ${params.epi} enviadas para ${params.targetName}.`,
+      }).select('id').single()
+      if (mnErr) throw new Error(mnErr.message)
+
+      undos.push(async () => {
+        await client.from('movements').delete().eq('id', movRow.id)
+        await client.from('notifications').delete().eq('id', matrizNotif.id)
+      })
+
+      await refresh()
+    } catch (err) {
+      for (const undo of undos.reverse()) {
+        try { await undo() } catch { /* melhor esforço */ }
+      }
+      throw err instanceof Error ? err : new Error(String(err))
+    }
   }, [refresh, client])
 
   const markNotificationRead = useCallback(async (id: number) => {

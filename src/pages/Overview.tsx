@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react'
 import {
   Users, Package, Tag, TrendingUp, TrendingDown, AlertTriangle,
-  ArrowUpRight, Activity, CheckCircle2, Clock,
+  ArrowUpRight, Activity, CheckCircle2, Clock, ShieldAlert,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid,
 } from 'recharts'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import type { Page } from '../components/layout/Sidebar'
+
+function caDaysLeft(expiry?: string): number | null {
+  if (!expiry) return null
+  const d = new Date(expiry)
+  if (Number.isNaN(d.getTime())) return null
+  return Math.ceil((d.getTime() - Date.now()) / 86400000)
+}
 
 function MetricCard({
   icon, label, value, trend, trendLabel, color, delay = 0,
@@ -107,12 +115,16 @@ function useRealtimeClock() {
   return now
 }
 
-export default function Overview() {
+export default function Overview({ onNavigate }: { onNavigate?: (page: Page) => void }) {
   const { employees, epis, categories, movements, chartData, loading } = useSupabaseData()
   const now = useRealtimeClock()
   const lowStock = epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico')
   const activeEmployees = employees.filter((e) => e.status === 'Ativo')
   const totalStock = epis.reduce((s, e) => s + e.totalQuantity, 0)
+  const caAlerts = epis.filter((e) => {
+    const days = caDaysLeft(e.caExpiry)
+    return days !== null && days <= 60
+  })
 
   const todayMovements = movements.filter((m) => {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -154,6 +166,7 @@ export default function Overview() {
         <MetricCard icon={<AlertTriangle size={18} />} label="Alertas de Estoque" value={lowStock.length}        trend={lowStock.length > 0 ? "down" : "up"}    trendLabel={lowStock.length > 0 ? "Atenção!" : "Tudo ok"}      color="#F43F5E" delay={240} />
         <MetricCard icon={<Activity size={18} />} label="Movimentações Hoje"    value={todayMovements}          trend={todayMovements > 0 ? "up" : "neutral"}     trendLabel="Hoje"   color="#10B981" delay={320} />
         <MetricCard icon={<CheckCircle2 size={18} />} label="Entregas no Mês"   value={thisMonthDeliveries}     trend={thisMonthDeliveries > 0 ? "up" : "neutral"}      trendLabel="Entregas"          color="#8B5CF6" delay={400} />
+        <MetricCard icon={<ShieldAlert size={18} />} label="CAs a Vencer"       value={caAlerts.length}          trend={caAlerts.length > 0 ? "down" : "up"}        trendLabel={caAlerts.length > 0 ? "Vencendo em 60d" : "Em dia"}      color="#F59E0B" delay={480} />
       </div>
 
       {/* Charts row */}
@@ -311,38 +324,68 @@ export default function Overview() {
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {lowStock.length === 0 ? (
+            {lowStock.length === 0 && caAlerts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 24, color: '#3D4257', fontSize: 13 }}>
                 Nenhum alerta no momento.
               </div>
-            ) : lowStock.map((item) => {
-              const pct = Math.round((item.totalQuantity / item.minQuantity) * 100)
-              return (
-                <div key={item.id} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.025)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#C4C9E2' }}>{item.name}</span>
-                    <span className={`badge ${item.status === 'Crítico' ? 'badge-danger' : 'badge-warning'}`}>
-                      {item.status}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2,
-                        width: `${Math.min(pct, 100)}%`,
-                        background: item.status === 'Crítico'
-                          ? 'linear-gradient(90deg, #F43F5E, #FB7185)'
-                          : 'linear-gradient(90deg, #F59E0B, #FCD34D)',
-                        transition: 'width 1s ease',
-                      }} />
+            ) : (<>
+              {lowStock.map((item) => {
+                const pct = Math.round((item.totalQuantity / item.minQuantity) * 100)
+                return (
+                  <div key={item.id} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.025)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#C4C9E2' }}>{item.name}</span>
+                      <span className={`badge ${item.status === 'Crítico' ? 'badge-danger' : 'badge-warning'}`}>
+                        {item.status}
+                      </span>
                     </div>
-                    <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#5C6388', flexShrink: 0 }}>
-                      {item.totalQuantity}/{item.minQuantity}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 2,
+                          width: `${Math.min(pct, 100)}%`,
+                          background: item.status === 'Crítico'
+                            ? 'linear-gradient(90deg, #F43F5E, #FB7185)'
+                            : 'linear-gradient(90deg, #F59E0B, #FCD34D)',
+                          transition: 'width 1s ease',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#5C6388', flexShrink: 0 }}>
+                        {item.totalQuantity}/{item.minQuantity}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+
+              {caAlerts.length > 0 && (
+                <>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: '#3D4257', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 6 }}>
+                    Validade do CA (60 dias)
+                  </div>
+                  {caAlerts.map((item) => {
+                    const days = caDaysLeft(item.caExpiry)
+                    return (
+                      <div key={`ca-${item.id}`} style={{
+                        padding: '12px 14px', background: 'rgba(255,255,255,0.025)', borderRadius: 10,
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                      }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#C4C9E2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                          <div style={{ fontSize: 11, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
+                            CA {item.caNumber || '—'} • {new Date(item.caExpiry!).toLocaleDateString('pt-BR')}
+                          </div>
+                        </div>
+                        <span className={`badge ${(days ?? 0) < 0 ? 'badge-danger' : 'badge-warning'}`} style={{ flexShrink: 0 }}>
+                          {(days ?? 0) < 0 ? 'Vencido' : `Vence em ${days}d`}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </>)}
           </div>
         </div>
 
@@ -361,14 +404,17 @@ export default function Overview() {
             </h3>
             <p style={{ fontSize: 12, color: '#3D4257', margin: 0 }}>Quantidade disponível em cada categoria</p>
           </div>
-          <button style={{
+          <button onClick={() => onNavigate?.('reports')} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             fontSize: 12, fontWeight: 600, color: '#818CF8',
             background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
             borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
             fontFamily: 'var(--font-sans)',
             transition: 'background 0.15s',
-          }}>
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99,102,241,0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)' }}
+          >
             Ver relatório <ArrowUpRight size={12} />
           </button>
         </div>

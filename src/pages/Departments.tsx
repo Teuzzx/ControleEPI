@@ -41,9 +41,11 @@ export default function Departments() {
     setEditing(null)
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (team: Department) => {
+    const members = employees.filter((e) => e.team === team.name).length
+    if (!window.confirm(`Excluir o departamento "${team.name}"?${members > 0 ? ` Ele tem ${members} colaborador(es) vinculado(s).` : ''}`)) return
     try {
-      await deleteDepartment(id)
+      await deleteDepartment(team.id)
     } catch (err) {
       alert(`Erro ao excluir departamento: ${(err as Error).message}`)
     }
@@ -108,7 +110,7 @@ export default function Departments() {
                   }}>
                     <Edit2 size={12} />
                   </button>
-                  <button onClick={() => handleDelete(team.id)} style={{
+                  <button onClick={() => handleDelete(team)} style={{
                     width: 28, height: 28, borderRadius: 7, background: 'rgba(244,63,94,0.1)',
                     border: '1px solid rgba(244,63,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', color: '#F87171', transition: 'background 0.15s',

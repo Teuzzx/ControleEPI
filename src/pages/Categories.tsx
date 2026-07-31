@@ -34,9 +34,10 @@ export default function Categories() {
     setEditing(null)
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (cat: { id: number; name: string }) => {
+    if (!window.confirm(`Excluir a categoria "${cat.name}"?`)) return
     try {
-      await deleteCategory(id)
+      await deleteCategory(cat.id)
     } catch (err) {
       alert(`Erro ao excluir categoria: ${(err as Error).message}`)
     }
@@ -86,7 +87,7 @@ export default function Categories() {
                 <button onClick={() => openEdit(cat)} style={{ width: 28, height: 28, borderRadius: 7, background: `${cat.color}12`, border: `1px solid ${cat.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: cat.color }}>
                   <Edit2 size={12} />
                 </button>
-                <button onClick={() => handleDelete(cat.id)} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#F87171' }}>
+                <button onClick={() => handleDelete(cat)} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#F87171' }}>
                   <Trash2 size={12} />
                 </button>
               </div>

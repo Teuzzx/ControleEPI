@@ -1,4 +1,5 @@
-import { supabase } from './supabase'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { supabase, supabaseUrl, supabaseAnonKey } from './supabase'
 
 export interface SessionUser {
   id: number
@@ -9,6 +10,10 @@ export interface SessionUser {
   companyName: string
   companyUrl: string
   companyKey: string
+  /** Token de sessão gerado no banco (tabela sessions). */
+  token: string
+  /** Timestamp de expiração da sessão. */
+  expiresAt: number
 }
 
 export interface Company {
@@ -20,129 +25,70 @@ export interface Company {
   color: string
 }
 
-function rotr(x: number, n: number): number {
-  return (x >>> n) | (x << (32 - n))
+const SESSION_KEY = 'epi_session'
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000
+
+/**
+ * Cliente autenticado (matriz) — envia o token de sessão no header
+ * `x-session-token` para as políticas de RLS validarem.
+ */
+let authedClient: SupabaseClient | null = null
+
+function tokenHeader(token?: string): Record<string, string> {
+  return token ? { 'x-session-token': token } : {}
 }
 
-/** SHA-256 em JS puro — fallback para contextos sem crypto.subtle (ex.: HTTP/IP). */
-function sha256Sync(text: string): string {
-  const utf8 = unescape(encodeURIComponent(text))
-  const bytes: number[] = []
-  for (let i = 0; i < utf8.length; i++) bytes.push(utf8.charCodeAt(i))
-  const bitLen = bytes.length * 8
-  bytes.push(0x80)
-  while (bytes.length % 64 !== 56) bytes.push(0)
-  const high = Math.floor(bitLen / 0x100000000)
-  const low = bitLen >>> 0
-  bytes.push((high >>> 24) & 0xff, (high >>> 16) & 0xff, (high >>> 8) & 0xff, high & 0xff)
-  bytes.push((low >>> 24) & 0xff, (low >>> 16) & 0xff, (low >>> 8) & 0xff, low & 0xff)
-
-  const K = [
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-  ]
-
-  const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
-
-  for (let i = 0; i < bytes.length; i += 64) {
-    const w = new Array<number>(64).fill(0)
-    for (let t = 0; t < 16; t++) {
-      w[t] = (
-        (bytes[i + t * 4] << 24) |
-        (bytes[i + t * 4 + 1] << 16) |
-        (bytes[i + t * 4 + 2] << 8) |
-        bytes[i + t * 4 + 3]
-      ) >>> 0
-    }
-    for (let t = 16; t < 64; t++) {
-      const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3)
-      const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10)
-      w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0
-    }
-    let a = H[0], b = H[1], c = H[2], d = H[3]
-    let e = H[4], f = H[5], g = H[6], h = H[7]
-    for (let t = 0; t < 64; t++) {
-      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
-      const ch = (e & f) ^ (~e & g)
-      const temp1 = (h + S1 + ch + K[t] + w[t]) >>> 0
-      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)
-      const maj = (a & b) ^ (a & c) ^ (b & c)
-      const temp2 = (S0 + maj) >>> 0
-      h = g; g = f; f = e; e = (d + temp1) >>> 0
-      d = c; c = b; b = a; a = (temp1 + temp2) >>> 0
-    }
-    H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0
-    H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0
-    H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0
-    H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0
-  }
-
-  return H.map((x) => (x >>> 0).toString(16).padStart(8, '0')).join('')
+export function getAuthClient(): SupabaseClient {
+  if (authedClient) return authedClient
+  const session = loadSession()
+  authedClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: tokenHeader(session?.token) },
+  })
+  return authedClient
 }
 
-async function sha256Hex(text: string): Promise<string> {
-  try {
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      const data = new TextEncoder().encode(text)
-      const digest = await crypto.subtle.digest('SHA-256', data)
-      return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
-    }
-  } catch {
-    // fallback abaixo
-  }
-  return sha256Sync(text)
+export function resetAuthClient(): void {
+  authedClient = null
 }
 
+/** Cliente apontando para o banco de uma filial, autenticado com o token. */
+export function createSessionClient(url: string, anonKey: string, token: string): SupabaseClient {
+  return createClient(url, anonKey, { global: { headers: tokenHeader(token) } })
+}
+
+/**
+ * Login verificado no banco pela função `app_login` (security definer):
+ * a senha é comparada com o hash dentro do Postgres e o usuário nunca é
+ * listado via anon key. Retorna um token de sessão válido por 12h.
+ */
 export async function login(email: string, password: string): Promise<SessionUser> {
-  const { data: users, error } = await supabase
-    .from('users')
-    .select('*')
-    .ilike('email', email.trim())
-    .limit(1)
+  const { data, error } = await supabase.rpc('app_login', {
+    p_email: email.trim(),
+    p_password: password,
+  })
 
-  if (error) throw new Error(error.message)
-
-  const user = users?.[0]
-  if (!user) throw new Error('Credenciais inválidas. Verifique e tente novamente.')
-
-  const hash = await sha256Hex(password)
-  if (user.password !== hash) throw new Error('Credenciais inválidas. Verifique e tente novamente.')
-
-  let companyName = 'Matriz Central'
-  let companyUrl = ''
-  let companyKey = ''
-
-  if (user.company_id != null) {
-    const { data: company } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', user.company_id)
-      .maybeSingle()
-    companyName = company?.name ?? 'Empresa'
-    companyUrl = company?.supabase_url ?? ''
-    companyKey = company?.anon_key ?? ''
+  if (error || !Array.isArray(data) || data.length === 0 || !data[0]?.token) {
+    throw new Error('Credenciais inválidas. Verifique e tente novamente.')
   }
+
+  const row = data[0] as Record<string, unknown>
 
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    companyId: user.company_id,
-    companyName,
-    companyUrl,
-    companyKey,
+    id: Number(row.user_id),
+    name: String(row.user_name),
+    email: String(row.user_email),
+    role: String(row.user_role) === 'filial' ? 'filial' : 'matriz',
+    companyId: row.company_id != null ? Number(row.company_id) : null,
+    companyName: String(row.company_name || 'Matriz Central'),
+    companyUrl: String(row.company_url || ''),
+    companyKey: String(row.company_key || ''),
+    token: String(row.token),
+    expiresAt: Date.now() + SESSION_TTL_MS,
   }
 }
 
 export async function fetchCompanies(): Promise<Company[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getAuthClient()
     .from('companies')
     .select('*')
     .order('is_matriz', { ascending: false })
@@ -152,7 +98,7 @@ export async function fetchCompanies(): Promise<Company[]> {
   return (data ?? []) as Company[]
 }
 
-/** Matriz cria uma empresa filha e a conta de login dela (herança). */
+/** Matriz cria uma empresa filha e a conta de login dela (feito no banco via RPC). */
 export async function createCompanyAndUser(params: {
   name: string
   supabaseUrl?: string
@@ -162,49 +108,26 @@ export async function createCompanyAndUser(params: {
   adminEmail: string
   adminPassword: string
 }): Promise<void> {
-  const { data: existing } = await supabase
-    .from('companies')
-    .select('id')
-    .ilike('name', params.name.trim())
-    .maybeSingle()
-
-  if (existing) throw new Error('Já existe uma empresa com esse nome.')
-
-  const { data: company, error: companyError } = await supabase
-    .from('companies')
-    .insert({
-      name: params.name.trim(),
-      is_matriz: false,
-      supabase_url: params.supabaseUrl ?? '',
-      anon_key: params.anonKey ?? '',
-      color: params.color ?? '#22D3EE',
-    })
-    .select()
-    .single()
-
-  if (companyError) throw new Error(companyError.message)
-
-  const hash = await sha256Hex(params.adminPassword)
-  const { error: userError } = await supabase.from('users').insert({
-    company_id: company.id,
-    name: params.adminName.trim(),
-    email: params.adminEmail.trim().toLowerCase(),
-    password: hash,
-    role: 'filial',
+  const { error } = await getAuthClient().rpc('app_create_company', {
+    p_name: params.name.trim(),
+    p_admin_name: params.adminName.trim(),
+    p_admin_email: params.adminEmail.trim(),
+    p_admin_password: params.adminPassword,
+    p_supabase_url: params.supabaseUrl ?? '',
+    p_anon_key: params.anonKey ?? '',
+    p_color: params.color ?? '#22D3EE',
   })
-
-  if (userError) {
-    await supabase.from('companies').delete().eq('id', company.id)
-    throw new Error(userError.message)
-  }
-}
-
-export async function updateCompanyConnection(id: number, url: string, key: string): Promise<void> {
-  const { error } = await supabase.from('companies').update({ supabase_url: url, anon_key: key }).eq('id', id)
   if (error) throw new Error(error.message)
 }
 
-const SESSION_KEY = 'epi_session'
+export async function updateCompanyConnection(id: number, url: string, key: string): Promise<void> {
+  const { error } = await getAuthClient().rpc('app_update_company_connection', {
+    p_id: id,
+    p_url: url,
+    p_key: key,
+  })
+  if (error) throw new Error(error.message)
+}
 
 /** Sessão em sessionStorage: sobrevive a recarregamentos (F5), mas exige login ao fechar a aba. */
 export function saveSession(user: SessionUser): void {
@@ -214,7 +137,13 @@ export function saveSession(user: SessionUser): void {
 export function loadSession(): SessionUser | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY)
-    return raw ? (JSON.parse(raw) as SessionUser) : null
+    if (!raw) return null
+    const user = JSON.parse(raw) as SessionUser
+    if (!user.token || !user.expiresAt || user.expiresAt <= Date.now()) {
+      sessionStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return user
   } catch {
     return null
   }
@@ -222,4 +151,5 @@ export function loadSession(): SessionUser | null {
 
 export function clearSession(): void {
   sessionStorage.removeItem(SESSION_KEY)
+  resetAuthClient()
 }

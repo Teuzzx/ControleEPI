@@ -54,9 +54,10 @@ export default function Employees() {
     setMode('edit')
   }
   const closeModal = () => { setMode('list'); setSelected(null); setForm({}) }
-  const deleteEmployeeAction = async (id: number) => {
+  const deleteEmployeeAction = async (emp: Employee) => {
+    if (!window.confirm(`Excluir o colaborador "${emp.name}"? Essa ação não pode ser desfeita.`)) return
     try {
-      await deleteEmployee(id)
+      await deleteEmployee(emp.id)
     } catch (err) {
       alert(`Erro ao excluir: ${(err as Error).message}`)
     }
@@ -208,7 +209,7 @@ export default function Employees() {
                       {[
                         { icon: <Eye size={13} />, action: () => openView(emp), color: '#6366F1', title: 'Visualizar' },
                         { icon: <Edit2 size={13} />, action: () => openEdit(emp), color: '#22D3EE', title: 'Editar' },
-                        { icon: <Trash2 size={13} />, action: () => deleteEmployeeAction(emp.id), color: '#F43F5E', title: 'Excluir' },
+                        { icon: <Trash2 size={13} />, action: () => deleteEmployeeAction(emp), color: '#F43F5E', title: 'Excluir' },
                       ].map(({ icon, action, color, title }) => (
                         <button key={title} onClick={action} title={title} style={{
                           width: 28, height: 28, borderRadius: 7,

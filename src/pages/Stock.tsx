@@ -17,6 +17,7 @@ interface EpiForm {
   supplier: string
   description: string
   caNumber: string
+  caExpiry: string
   batchNumber: string
   manufacturingDate: string
   totalQuantity: string
@@ -27,8 +28,22 @@ interface EpiForm {
 
 const EMPTY_FORM: EpiForm = {
   name: '', category: '', subcategory: '', manufacturer: '', supplier: '',
-  description: '', caNumber: '', batchNumber: '', manufacturingDate: '',
+  description: '', caNumber: '', caExpiry: '', batchNumber: '', manufacturingDate: '',
   totalQuantity: '', minQuantity: '', location: '', notes: '',
+}
+
+function caDaysLeft(expiry?: string): number | null {
+  if (!expiry) return null
+  const d = new Date(expiry)
+  if (Number.isNaN(d.getTime())) return null
+  return Math.ceil((d.getTime() - Date.now()) / 86400000)
+}
+
+function caChipColor(days: number | null): { bg: string; text: string } {
+  if (days === null) return { bg: 'rgba(255,255,255,0.04)', text: '#5C6388' }
+  if (days < 0) return { bg: 'rgba(244,63,94,0.12)', text: '#F87171' }
+  if (days <= 60) return { bg: 'rgba(245,158,11,0.12)', text: '#FCD34D' }
+  return { bg: 'rgba(16,185,129,0.12)', text: '#4ADE80' }
 }
 
 export default function Stock() {
@@ -63,6 +78,7 @@ export default function Stock() {
       supplier: epi.supplier,
       description: epi.description,
       caNumber: epi.caNumber || '',
+      caExpiry: epi.caExpiry || '',
       batchNumber: epi.batchNumber,
       manufacturingDate: epi.manufacturingDate,
       totalQuantity: String(epi.totalQuantity),
@@ -103,6 +119,7 @@ export default function Stock() {
         supplier: form.supplier,
         description: form.description,
         caNumber: form.caNumber,
+        caExpiry: form.caExpiry,
         batchNumber: form.batchNumber,
         manufacturingDate: form.manufacturingDate,
         totalQuantity: parseInt(form.totalQuantity) || 0,
@@ -299,13 +316,22 @@ export default function Stock() {
                 </div>
 
                 {/* Location + CA */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, color: '#3D4257' }}>📍 {epi.location}</span>
-                  {epi.caNumber && (
-                    <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: '#5C6388', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: 6 }}>
-                      {epi.caNumber}
-                    </span>
-                  )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 11, color: '#3D4257', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 {epi.location}</span>
+                  {epi.caNumber && (() => {
+                    const days = caDaysLeft(epi.caExpiry)
+                    const chip = caChipColor(days)
+                    return (
+                      <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: chip.text, background: chip.bg, padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                        {epi.caNumber}
+                        {days !== null && (
+                          <span style={{ marginLeft: 4 }}>
+                            • {days < 0 ? 'CA vencido' : `CA vence ${days}d`}
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
 
@@ -404,6 +430,10 @@ export default function Stock() {
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Número CA</label>
                 <input className="input-field" value={form.caNumber} onChange={(e) => set('caNumber', e.target.value)} placeholder="Ex: 12345" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Validade do CA</label>
+                <input className="input-field" type="date" value={form.caExpiry} onChange={(e) => set('caExpiry', e.target.value)} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Lote</label>

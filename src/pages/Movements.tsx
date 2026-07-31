@@ -19,6 +19,8 @@ export default function Movements() {
   const { movements, loading } = useSupabaseData()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 50
 
   const filtered = movements.filter((m) => {
     const q = search.toLowerCase()
@@ -26,6 +28,11 @@ export default function Movements() {
     const matchType = typeFilter === 'all' || m.type === typeFilter
     return matchSearch && matchType
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const setTypeAndReset = (t: string) => { setTypeFilter(t); setPage(1) }
 
   return (
     <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
@@ -48,7 +55,7 @@ export default function Movements() {
 
       {/* Type pill filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        <button onClick={() => setTypeFilter('all')} style={{
+        <button onClick={() => setTypeAndReset('all')} style={{
           padding: '7px 14px', borderRadius: 9, border: '1px solid',
           borderColor: typeFilter === 'all' ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.07)',
           background: typeFilter === 'all' ? 'rgba(99,102,241,0.12)' : 'rgba(13,15,24,0.9)',
@@ -61,7 +68,7 @@ export default function Movements() {
         {Object.entries(TYPE_COLORS).map(([type, colors]) => {
           const count = movements.filter((m) => m.type === type).length
           return (
-            <button key={type} onClick={() => setTypeFilter(typeFilter === type ? 'all' : type)} style={{
+            <button key={type} onClick={() => setTypeAndReset(typeFilter === type ? 'all' : type)} style={{
               padding: '7px 14px', borderRadius: 9, border: `1px solid`,
               borderColor: typeFilter === type ? colors.border : 'rgba(255,255,255,0.07)',
               background: typeFilter === type ? colors.bg : 'rgba(13,15,24,0.9)',
@@ -83,7 +90,7 @@ export default function Movements() {
       }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#3D4257' }} />
-          <input className="input-field" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por colaborador ou EPI..." style={{ paddingLeft: 34, paddingTop: 9, paddingBottom: 9 }} />
+          <input className="input-field" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar por colaborador ou EPI..." style={{ paddingLeft: 34, paddingTop: 9, paddingBottom: 9 }} />
         </div>
       </div>
 
@@ -108,7 +115,7 @@ export default function Movements() {
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Carregando movimentações...</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Nenhuma movimentação encontrada.</td></tr>
-              ) : filtered.map((m) => {
+              ) : paged.map((m) => {
                 const colors = TYPE_COLORS[m.type]
                 return (
                   <tr key={m.id}>
@@ -150,10 +157,24 @@ export default function Movements() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 12, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
-            {filtered.length} movimentação{filtered.length !== 1 ? 'ões' : ''}
+            {filtered.length} movimentação{filtered.length !== 1 ? 'ões' : ''} • Página {page}/{totalPages}
           </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: page <= 1 ? 'not-allowed' : 'pointer',
+              background: page <= 1 ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.12)',
+              border: `1px solid ${page <= 1 ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.3)'}`,
+              color: page <= 1 ? '#3D4257' : '#A5B4FC', fontFamily: 'var(--font-sans)',
+            }}>‹ Anterior</button>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              background: page >= totalPages ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.12)',
+              border: `1px solid ${page >= totalPages ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.3)'}`,
+              color: page >= totalPages ? '#3D4257' : '#A5B4FC', fontFamily: 'var(--font-sans)',
+            }}>Próxima ›</button>
+          </div>
         </div>
       </div>
     </div>

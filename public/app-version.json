@@ -1,0 +1,5 @@
+{
+  "version": "1.0.3",
+  "notes": "Correção: permissão de internet no Android (erro \"sem conexão com o servidor\").",
+  "apkUrl": "/Controle-EPI.apk"
+}

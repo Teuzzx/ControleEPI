@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import LoginPage from './components/login/LoginPage'
 import Sidebar, { type Page } from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
@@ -13,9 +12,8 @@ import Categories from './pages/Categories'
 import Entries from './pages/Entries'
 import Companies from './pages/Companies'
 import Distribution from './pages/Distribution'
-import { supabase } from './lib/supabase'
 import { DataClientProvider } from './lib/clientContext'
-import { loadSession, saveSession, clearSession, type SessionUser } from './lib/auth'
+import { loadSession, saveSession, clearSession, getAuthClient, createSessionClient, type SessionUser } from './lib/auth'
 
 const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   overview:     { title: 'Dashboard',           subtitle: 'Visão geral do sistema' },
@@ -30,9 +28,9 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   distribution: { title: 'Distribuição',         subtitle: 'Envio de EPIs para as empresas' },
 }
 
-function PageComponent({ page }: { page: Page }) {
+function PageComponent({ page, onNavigate }: { page: Page; onNavigate?: (page: Page) => void }) {
   switch (page) {
-    case 'overview':     return <Overview />
+    case 'overview':     return <Overview onNavigate={onNavigate} />
     case 'employees':    return <Employees />
     case 'stock':        return <Stock />
     case 'entries':      return <Entries />
@@ -50,19 +48,19 @@ export default function App() {
   const [user, setUser] = useState<SessionUser | null>(() => loadSession())
   const [currentPage, setCurrentPage] = useState<Page>('overview')
   const [transitioning, setTransitioning] = useState(false)
-  const [dataClient, setDataClient] = useState(() => supabase)
+  const [dataClient, setDataClient] = useState(() => getAuthClient())
 
-  // Sessão salva → cria client do banco da empresa do usuário (filial) ou usa o da matriz
+  // Sessão salva → cria client do banco da empresa do usuário (filial) ou o da matriz autenticado
   useEffect(() => {
     if (!user) return
     if (user.companyId != null && user.companyUrl && user.companyKey) {
       try {
-        setDataClient(createClient(user.companyUrl, user.companyKey))
+        setDataClient(createSessionClient(user.companyUrl, user.companyKey, user.token))
       } catch {
-        setDataClient(supabase)
+        setDataClient(getAuthClient())
       }
     } else {
-      setDataClient(supabase)
+      setDataClient(getAuthClient())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.companyId])
@@ -88,7 +86,7 @@ export default function App() {
     }, 150)
   }
 
-  const refreshKey = `${dataClient === supabase ? 'matriz' : 'filial'}`
+  const refreshKey = user?.role ?? 'guest'
 
   if (!user) {
     return <LoginPage onLogin={handleLogin} />
@@ -171,7 +169,7 @@ export default function App() {
               transition: 'opacity 0.15s ease, transform 0.15s ease',
             }}
           >
-            <PageComponent page={currentPage} />
+            <PageComponent page={currentPage} onNavigate={handleNavigate} />
           </main>
         </div>
       </div>

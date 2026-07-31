@@ -22,6 +22,10 @@ export default function Entries() {
     notes: '',
   })
   const [variants, setVariants] = useState<VariantRow[]>([{ color: '', size: '', quantity: '' }])
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 30
+  const totalPages = Math.max(1, Math.ceil(entries.length / PER_PAGE))
+  const pagedEntries = entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   const set = (key: string, val: string) => setForm((prev) => ({ ...prev, [key]: val }))
 
@@ -122,7 +126,7 @@ export default function Entries() {
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Carregando entradas...</td></tr>
               ) : entries.length === 0 ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Nenhuma entrada registrada.</td></tr>
-              ) : entries.map((entry, idx) => {
+              ) : pagedEntries.map((entry, idx) => {
                 const detail = [entry.color, entry.size].filter(Boolean).join(' / ')
                 return (
                   <tr key={entry.id} style={{ animation: `fade-up 0.4s ease both`, animationDelay: `${idx * 0.04}s` }}>
@@ -154,8 +158,22 @@ export default function Entries() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <span style={{ fontSize: 12, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>{entries.length} entrada{entries.length !== 1 ? 's' : ''} registrada{entries.length !== 1 ? 's' : ''}</span>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 12, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>{entries.length} entrada{entries.length !== 1 ? 's' : ''} registrada{entries.length !== 1 ? 's' : ''} • Página {page}/{totalPages}</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: page <= 1 ? 'not-allowed' : 'pointer',
+              background: page <= 1 ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.12)',
+              border: `1px solid ${page <= 1 ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.3)'}`,
+              color: page <= 1 ? '#3D4257' : '#A5B4FC', fontFamily: 'var(--font-sans)',
+            }}>‹ Anterior</button>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              background: page >= totalPages ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.12)',
+              border: `1px solid ${page >= totalPages ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.3)'}`,
+              color: page >= totalPages ? '#3D4257' : '#A5B4FC', fontFamily: 'var(--font-sans)',
+            }}>Próxima ›</button>
+          </div>
         </div>
       </div>
 

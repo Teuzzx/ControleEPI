@@ -58,6 +58,7 @@ export interface Epi {
   supplier: string
   description: string
   caNumber?: string
+  caExpiry?: string
   batchNumber: string
   manufacturingDate: string
   totalQuantity: number
