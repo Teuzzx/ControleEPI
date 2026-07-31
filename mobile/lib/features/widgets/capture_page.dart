@@ -58,17 +58,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return file.path;
   }
 
-  /// Exporta a assinatura em PNG. Tenta o caminho nativo do pacote e, se
-  /// falhar (alguns Android travam no `Picture.toImage`), usa um renderizador
-  /// 100% em Dart com o pacote `image` — mesma lógica do export web do pacote.
-  Future<Uint8List?> _exportSignaturePng() async {
-    try {
-      final png = await _sigCtrl.toPngBytes();
-      if (png != null && png.isNotEmpty) return png;
-    } catch (_) {
-      // cai no fallback
-    }
-
+  /// Exporta a assinatura em PNG **100% em Dart** (pacote `image`).
+  /// Não usa `Picture.toImage` do Flutter, que trava para sempre em alguns
+  /// Android — por isso o botão sempre responde.
+  Uint8List? _exportSignaturePng() {
     final points = _sigCtrl.value;
     if (points.isEmpty) return null;
 
@@ -90,8 +83,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     img.fill(out, color: img.ColorRgba8(255, 255, 255, 255));
 
     final pen = img.ColorRgba8(26, 29, 46, 255);
-    final dx = (minX - stroke).toDouble();
-    final dy = (minY - stroke).toDouble();
+    final dx = minX - stroke;
+    final dy = minY - stroke;
 
     for (var i = 0; i < points.length - 1; i++) {
       final x1 = (points[i].offset.dx - dx).toInt();
@@ -124,20 +117,33 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   Future<void> _saveSignature() async {
-    if (_sigCtrl.isEmpty || _savingSignature) return;
+    if (_savingSignature) return;
+    if (_sigCtrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Desenhe a assinatura na área branca antes de salvar.')),
+      );
+      return;
+    }
     setState(() => _savingSignature = true);
     try {
-      final png = await _exportSignaturePng();
-      if (png == null) {
+      final png = _exportSignaturePng();
+      if (png == null || png.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Desenhe a assinatura para salvá-la.')),
+          const SnackBar(content: Text('Não foi possível gerar a assinatura. Tente refazer.')),
         );
         return;
       }
       final path = await _saveToDocuments(png, 'png');
       if (!mounted) return;
       setState(() => _signaturePath = path);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF16A34A),
+          content: Text('Assinatura salva com sucesso!',
+              style: TextStyle(color: Colors.white)),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -276,9 +282,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                     const SizedBox(width: 12),
                     TextButton.icon(
-                      onPressed: _sigCtrl.isEmpty || _savingSignature
-                          ? null
-                          : _saveSignature,
+                      onPressed: _savingSignature ? null : _saveSignature,
                       icon: _savingSignature
                           ? const SizedBox(
                               width: 16,
@@ -297,10 +301,17 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   ],
                 ),
-                if (_signaturePath != null)
+                if (_signaturePath != null) ...[
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(File(_signaturePath!), height: 90, fit: BoxFit.contain),
+                  ),
+                  const SizedBox(height: 6),
                   const Text('Assinatura salva.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
               ],
             ),
           ),

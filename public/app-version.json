@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
-  "notes": "Correções: login entra na hora (sem precisar reabrir o app), salvamento de assinatura e permissão de internet no Android.",
+  "version": "1.0.5",
+  "notes": "Correção definitiva da assinatura: exportação agora é 100% em Dart (o método anterior travava em alguns celulares).",
   "apkUrl": "/Controle-EPI.apk"
 }
