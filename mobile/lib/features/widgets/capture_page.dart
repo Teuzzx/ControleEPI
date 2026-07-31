@@ -19,13 +19,22 @@ class CaptureResult {
   const CaptureResult({this.photoPath, this.signaturePath});
 }
 
-/// Tela única de captura: foto do EPI (câmera/galeria) + assinatura digital.
+/// Tela única de captura: foto (câmera/galeria) + assinatura digital.
+/// Por padrão espera foto do EPI; a saída usa [photoLabel] "Foto do colaborador".
 /// Retorna [CaptureResult] via Navigator.pop.
 class CapturePage extends ConsumerStatefulWidget {
-  const CapturePage({super.key, this.requirePhoto = true, this.requireSignature = true});
+  const CapturePage({
+    super.key,
+    this.requirePhoto = true,
+    this.requireSignature = true,
+    this.photoLabel = 'Foto do EPI',
+    this.photoErrorText = 'Adicione uma foto do equipamento.',
+  });
 
   final bool requirePhoto;
   final bool requireSignature;
+  final String photoLabel;
+  final String photoErrorText;
 
   @override
   ConsumerState<CapturePage> createState() => _CapturePageState();
@@ -162,7 +171,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         SnackBar(
           content: Text(
             !okPhoto
-                ? 'Adicione uma foto do equipamento.'
+                ? widget.photoErrorText
                 : 'Capture a assinatura do colaborador.',
           ),
         ),
@@ -194,7 +203,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          const Text('Foto do EPI',
+          Text(widget.photoLabel,
               style: TextStyle(color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           AppCard(

@@ -218,7 +218,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         'Distribuição' => kAmber,
                         _ => kSub,
                       };
-                      final when = DateTime.tryParse(m['created_at'] as String? ?? '');
+                      final when = DateTime.tryParse(m['created_at'] as String? ?? '')?.toLocal();
                       return ListTile(
                         dense: true,
                         leading: Icon(icon, color: color, size: 22),

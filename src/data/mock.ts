@@ -79,6 +79,11 @@ export interface Movement {
   operator: string
   company?: string
   notes?: string
+  color?: string
+  size?: string
+  cartId?: string
+  photoUrl?: string
+  signatureUrl?: string
 }
 
 export interface StockEntry {

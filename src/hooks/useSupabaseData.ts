@@ -41,6 +41,8 @@ interface DbVariant {
 interface DbMovement {
   id: number; type: Movement['type']; employee_name: string; epi_name: string
   quantity: number; operator: string; notes: string; company_name: string; created_at: string
+  color?: string; size?: string; cart_id?: string | null
+  photo_url?: string | null; signature_url?: string | null
 }
 interface DbStockEntry {
   id: number; epi_name: string; manufacturer: string; supplier: string
@@ -201,6 +203,11 @@ export function useSupabaseData() {
       operator: m.operator,
       company: m.company_name || undefined,
       notes: m.notes || undefined,
+      color: m.color || undefined,
+      size: m.size || undefined,
+      cartId: m.cart_id || undefined,
+      photoUrl: m.photo_url || undefined,
+      signatureUrl: m.signature_url || undefined,
     }))
 
     const mappedEntries: StockEntry[] = dbEntries.map((e) => ({

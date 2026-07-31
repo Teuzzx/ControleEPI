@@ -63,7 +63,11 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
 
   Future<void> _capture() async {
     final result = await Navigator.push<CaptureResult>(context,
-        MaterialPageRoute(builder: (_) => const CapturePage()));
+        MaterialPageRoute(
+            builder: (_) => const CapturePage(
+                  photoLabel: 'Foto do colaborador',
+                  photoErrorText: 'Adicione a foto do colaborador.',
+                )));
     if (result == null) return;
     setState(() {
       _photoPath = result.photoPath;
@@ -84,7 +88,7 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
       return;
     }
     if (_photoPath == null || _signaturePath == null) {
-      _warn('Adicione a foto do EPI e a assinatura do colaborador.');
+      _warn('Adicione a foto do colaborador e a assinatura.');
       return;
     }
 
@@ -330,7 +334,7 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
 
                 // ── Foto + assinatura ─────────────────────────────────────
                 const SizedBox(height: 12),
-                const Text('3. Foto e assinatura',
+                const Text('3. Foto do colaborador e assinatura',
                     style: TextStyle(color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 AppCard(
@@ -352,8 +356,8 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                           children: [
                             Text(
                               _photoPath != null && _signaturePath != null
-                                  ? 'Foto e assinatura capturadas'
-                                  : 'Capturar foto do EPI e assinatura',
+                                  ? 'Foto do colaborador e assinatura capturadas'
+                                  : 'Capturar foto do colaborador e assinatura',
                               style: const TextStyle(
                                   color: kText, fontSize: 13.5, fontWeight: FontWeight.w600),
                             ),

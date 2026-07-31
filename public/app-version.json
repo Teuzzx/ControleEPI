@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
-  "notes": "Correção definitiva da assinatura: exportação agora é 100% em Dart (o método anterior travava em alguns celulares).",
+  "version": "1.0.6",
+  "notes": "Saída de EPI agora captura a foto do colaborador junto com a assinatura (em vez da foto do EPI) e o horário das movimentações foi corrigido.",
   "apkUrl": "/Controle-EPI.apk"
 }
