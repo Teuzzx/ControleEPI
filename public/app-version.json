@@ -1,5 +1,5 @@
 {
-  "version": "1.0.6",
-  "notes": "Saída de EPI agora captura a foto do colaborador junto com a assinatura (em vez da foto do EPI) e o horário das movimentações foi corrigido.",
+  "version": "1.0.7",
+  "notes": "Notificações: alerta automático de estoque baixo, avisos da matriz no sino (também no app) e aviso de nova versão no sistema web.",
   "apkUrl": "/Controle-EPI.apk"
 }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, RefreshCw, CheckCheck, Building2 } from 'lucide-react'
+import { Bell, RefreshCw, CheckCheck, Building2, Megaphone, RefreshCcw } from 'lucide-react'
 import { useSupabaseData } from '../../hooks/useSupabaseData'
+import { checkForAppUpdate, APP_VERSION, type AppUpdate } from '../../lib/version'
 
 interface Props {
   title: string
@@ -13,13 +14,39 @@ const TYPE_ICON: Record<string, string> = {
   distribuicao: '📦',
   info: 'ℹ️',
   alerta: '⚠️',
+  aviso: '📢',
 }
+
+const UPDATE_DISMISS_KEY = 'epi_update_dismissed'
 
 export default function TopBar({ title, subtitle, companyName, role }: Props) {
   const { notifications, loading, refresh, markNotificationRead, markAllNotificationsRead } = useSupabaseData()
   const [open, setOpen] = useState(false)
+  const [update, setUpdate] = useState<AppUpdate | null>(null)
+  const [updateDismissed, setUpdateDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(UPDATE_DISMISS_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    checkForAppUpdate().then((info) => {
+      if (info) setUpdate(info)
+    })
+  }, [])
+
+  const dismissUpdate = () => {
+    setUpdateDismissed(true)
+    try {
+      sessionStorage.setItem(UPDATE_DISMISS_KEY, '1')
+    } catch {
+      // storage bloqueado: o banner só não reaparece nesta sessão
+    }
+  }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -41,7 +68,45 @@ export default function TopBar({ title, subtitle, companyName, role }: Props) {
   }
 
   return (
-    <header style={{
+    <>
+      {update && !updateDismissed && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '9px 28px',
+          background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid rgba(245,158,11,0.25)',
+          flexShrink: 0,
+        }}>
+          <Megaphone size={14} color="#FCD34D" />
+          <span style={{ fontSize: 12.5, color: '#FCD34D', flex: 1, fontFamily: 'var(--font-sans)' }}>
+            Nova versão <strong>{update.version}</strong> do sistema disponível (você está na {APP_VERSION}).
+            {update.notes ? ` ${update.notes}` : ''}
+          </span>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 12, fontWeight: 600, color: '#0D0F18',
+              background: 'linear-gradient(135deg, #FBBF24, #F59E0B)', border: 'none',
+              borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <RefreshCcw size={12} /> Atualizar agora
+          </button>
+          <button
+            onClick={dismissUpdate}
+            style={{
+              fontSize: 12, fontWeight: 600, color: '#FCD34D',
+              background: 'transparent', border: '1px solid rgba(245,158,11,0.3)',
+              borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Agora não
+          </button>
+        </div>
+      )}
+      <header style={{
       height: 64,
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       display: 'flex',
@@ -238,5 +303,6 @@ export default function TopBar({ title, subtitle, companyName, role }: Props) {
         )}
       </div>
     </header>
+    </>
   )
 }

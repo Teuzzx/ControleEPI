@@ -8,6 +8,14 @@ import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../core/update_service.dart';
 import '../../providers.dart';
+import '../../repositories/data_repo.dart';
+
+const _typeIcons = {
+  'distribuicao': '📦',
+  'info': 'ℹ️',
+  'alerta': '⚠️',
+  'aviso': '📢',
+};
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -25,6 +33,197 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref.read(syncServiceProvider).init(ref);
       _checkForUpdate();
     });
+  }
+
+  Future<void> _showNotifications() async {
+    final client = ref.read(dataClientProvider);
+    if (client == null) return;
+
+    final notifications = await ref.read(notificationsProvider.future);
+    final unreadCount = notifications.where((n) => n['read'] != true).length;
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final items = ref.watch(notificationsProvider).valueOrNull ?? notifications;
+            return Container(
+              decoration: const BoxDecoration(
+                color: kCard,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(sheetContext).size.height * 0.75,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Notificações',
+                          style: TextStyle(
+                            color: kText,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (unreadCount > 0)
+                          TextButton(
+                            onPressed: () async {
+                              await DataRepo.markAllNotificationsRead(client);
+                              ref.invalidate(notificationsProvider);
+                            },
+                            child: const Text(
+                              'Marcar todas',
+                              style: TextStyle(color: kIndigo, fontSize: 12.5),
+                            ),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: kSub, size: 20),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: items.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text(
+                              'Nenhuma notificação.',
+                              style: TextStyle(color: kMuted, fontSize: 13),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (context, i) {
+                              final n = items[i];
+                              final id = (n['id'] as num?)?.toInt() ?? 0;
+                              final read = n['read'] == true;
+                              return Material(
+                                color: read ? Colors.transparent : kIndigo.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: read
+                                      ? null
+                                      : () async {
+                                          await DataRepo.markNotificationRead(client, id);
+                                          ref.invalidate(notificationsProvider);
+                                        },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: read
+                                            ? Colors.white.withValues(alpha: 0.06)
+                                            : kIndigo.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _typeIcons[n['type'] as String?] ?? '📌',
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      n['title'] as String? ?? '',
+                                                      style: TextStyle(
+                                                        color: read ? kSub : kText,
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (!read)
+                                                    Container(
+                                                      width: 7,
+                                                      height: 7,
+                                                      margin: const EdgeInsets.only(left: 8),
+                                                      decoration: const BoxDecoration(
+                                                        color: kIndigo,
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: kIndigo,
+                                                            blurRadius: 6,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                n['message'] as String? ?? '',
+                                                style: const TextStyle(color: kSub, fontSize: 12),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Text(
+                                                _formatNotifDate(n['created_at'] as String?),
+                                                style: const TextStyle(
+                                                  color: kMuted,
+                                                  fontSize: 10.5,
+                                                  fontFamily: 'monospace',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatNotifDate(String? iso) {
+    final d = DateTime.tryParse(iso ?? '')?.toLocal();
+    if (d == null) return '';
+    return DateFormat('dd/MM/yyyy HH:mm').format(d);
   }
 
   Future<void> _checkForUpdate() async {
@@ -82,11 +281,53 @@ class _HomePageState extends ConsumerState<HomePage> {
     final session = ref.watch(sessionProvider);
     final movements = ref.watch(recentMovementsProvider);
     final sync = ref.watch(syncServiceProvider);
+    ref.watch(notificationsRealtimeProvider);
+    final unread = ref
+            .watch(notificationsProvider)
+            .valueOrNull
+            ?.where((n) => n['read'] != true)
+            .length ??
+        0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Controle de EPI'),
         actions: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                tooltip: 'Notificações',
+                icon: const Icon(Icons.notifications_none, color: kSub),
+                onPressed: _showNotifications,
+              ),
+              if (unread > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF43F5E),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0xFFF43F5E), blurRadius: 6),
+                      ],
+                    ),
+                    child: Text(
+                      unread > 9 ? '9+' : '$unread',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           ValueListenableBuilder<int>(
             valueListenable: sync.pendingNotifier,
             builder: (_, pending, __) {

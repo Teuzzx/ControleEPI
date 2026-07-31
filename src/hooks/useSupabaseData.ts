@@ -19,6 +19,8 @@ export interface Notification {
   sender_company_id: number | null
   read: boolean
   created_at: string
+  epi_id?: number | null
+  ref_id?: string | null
 }
 
 interface DbDepartment { id: number; name: string; description: string; color: string }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, Package, Tag, UsersRound, ArrowLeftRight,
   BarChart3, Shield, ChevronLeft, ChevronRight, ChevronDown, Bell, Settings, LogOut,
-  Warehouse, FolderOpen, Building2, Send, Boxes,
+  Warehouse, FolderOpen, Building2, Send, Boxes, Megaphone,
 } from 'lucide-react'
 
 export type Page =
@@ -16,6 +16,7 @@ export type Page =
   | 'entries'
   | 'companies'
   | 'distribution'
+  | 'avisos'
 
 interface NavItem {
   id: Page
@@ -57,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'companies',    label: 'Empresas',     icon: <Building2 size={17} /> },
       { id: 'distribution', label: 'Distribuição', icon: <Send size={17} /> },
+      { id: 'avisos',       label: 'Avisos',       icon: <Megaphone size={17} /> },
     ],
   },
 ]

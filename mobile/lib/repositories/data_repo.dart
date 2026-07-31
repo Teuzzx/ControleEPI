@@ -48,6 +48,28 @@ class DataRepo {
     return (res as List).cast<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
   }
 
+  // ── Notificações (alertas de estoque, avisos da matriz, distribuições) ──
+
+  static Future<List<Map<String, dynamic>>> fetchNotifications(
+    SupabaseClient client, {
+    int limit = 30,
+  }) async {
+    final res = await client
+        .from('notifications')
+        .select('id, type, title, message, read, created_at')
+        .order('id', ascending: false)
+        .limit(limit);
+    return (res as List).cast<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+  }
+
+  static Future<void> markNotificationRead(SupabaseClient client, int id) async {
+    await client.from('notifications').update({'read': true}).eq('id', id);
+  }
+
+  static Future<void> markAllNotificationsRead(SupabaseClient client) async {
+    await client.from('notifications').update({'read': true}).eq('read', false);
+  }
+
   // ── Saída de EPI ───────────────────────────────────────────────────────
 
   static Future<int> processSaida({

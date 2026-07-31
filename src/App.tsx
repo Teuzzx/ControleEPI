@@ -12,6 +12,7 @@ import Categories from './pages/Categories'
 import Entries from './pages/Entries'
 import Companies from './pages/Companies'
 import Distribution from './pages/Distribution'
+import Avisos from './pages/Avisos'
 import { DataClientProvider } from './lib/clientContext'
 import { loadSession, saveSession, clearSession, getAuthClient, createSessionClient, type SessionUser } from './lib/auth'
 
@@ -26,6 +27,7 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   reports:      { title: 'Relatórios',           subtitle: 'Análise e exportação de dados' },
   companies:    { title: 'Empresas',             subtitle: 'Rede de empresas vinculadas' },
   distribution: { title: 'Distribuição',         subtitle: 'Envio de EPIs para as empresas' },
+  avisos:       { title: 'Avisos',               subtitle: 'Comunicados para a rede de empresas' },
 }
 
 function PageComponent({ page, onNavigate }: { page: Page; onNavigate?: (page: Page) => void }) {
@@ -40,6 +42,7 @@ function PageComponent({ page, onNavigate }: { page: Page; onNavigate?: (page: P
     case 'reports':      return <Reports />
     case 'companies':    return <Companies />
     case 'distribution': return <Distribution />
+    case 'avisos':       return <Avisos />
     default:             return <Overview />
   }
 }

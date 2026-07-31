@@ -111,6 +111,36 @@ final recentMovementsProvider = FutureProvider<List<Map<String, dynamic>>>((ref)
   return DataRepo.fetchRecentMovements(client);
 });
 
+// ── Notificações (alertas de estoque, avisos da matriz, distribuições) ───
+
+final notificationsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final client = ref.watch(dataClientProvider);
+  if (client == null) throw StateError('Sessão expirada.');
+  return DataRepo.fetchNotifications(client);
+});
+
+int _notifChannelSeq = 0;
+
+/// Mantém o canal realtime de notificações ativo: quando uma notificação
+/// muda no banco (nova alerta/aviso ou marcação de lida), o provider acima
+/// é recarregado automaticamente.
+final notificationsRealtimeProvider = Provider<Object?>((ref) {
+  final client = ref.watch(dataClientProvider);
+  if (client == null) return null;
+
+  final channel = client
+      .channel('mobile-notifications-${++_notifChannelSeq}')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'notifications',
+        callback: (_) => ref.invalidate(notificationsProvider),
+      )
+      .subscribe();
+  ref.onDispose(() => client.removeChannel(channel));
+  return channel;
+});
+
 // Cache de estoque: serializa EpiItem de forma simples (sem codegen).
 Map<String, dynamic> _epiToMap(EpiItem e) => {
       'id': e.id,
