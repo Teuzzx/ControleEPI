@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
-  "notes": "Correção: permissão de internet no Android (erro \"sem conexão com o servidor\").",
+  "version": "1.0.4",
+  "notes": "Correções: login entra na hora (sem precisar reabrir o app), salvamento de assinatura e permissão de internet no Android.",
   "apkUrl": "/Controle-EPI.apk"
 }

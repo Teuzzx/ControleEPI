@@ -11,10 +11,12 @@ import 'features/saida/saida_page.dart';
 import 'providers.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
+  // watch: recria a rota sempre que a sessão muda (login/logout),
+  // fazendo o redirect rodar de novo na hora — sem precisar reabrir o app.
+  final session = ref.watch(sessionProvider);
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
-      final session = ref.read(sessionProvider);
       final loggingIn = state.matchedLocation == '/login';
       if (session == null) return loggingIn ? null : '/login';
       if (loggingIn) return '/home';

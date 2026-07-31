@@ -1,7 +1,7 @@
 name: epi_mobile
 description: Controle de EPI — app do almoxarife (saída, devolução e consulta de estoque).
 publish_to: "none"
-version: 1.0.3+3
+version: 1.0.4+4
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -21,6 +21,7 @@ dependencies:
   uuid: ^4.5.1
   intl: ^0.20.0
   url_launcher: ^6.3.2
+  image: ^4.8.0
 
 dev_dependencies:
   flutter_test:

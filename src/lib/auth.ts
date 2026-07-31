@@ -62,12 +62,34 @@ export function createSessionClient(url: string, anonKey: string, token: string)
  * listado via anon key. Retorna um token de sessão válido por 12h.
  */
 export async function login(email: string, password: string): Promise<SessionUser> {
-  const { data, error } = await supabase.rpc('app_login', {
-    p_email: email.trim(),
-    p_password: password,
+  // Timeout de 20s: sem isso, em redes ruins/blocked o botão fica girando para sempre.
+  const TIMEOUT_MS = 20000
+  let timedOut = false
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      timedOut = true
+      reject(new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.'))
+    }, TIMEOUT_MS)
   })
 
-  if (error || !Array.isArray(data) || data.length === 0 || !data[0]?.token) {
+  let data: unknown
+  let error: { message?: string } | null = null
+  try {
+    const res = await Promise.race([
+      supabase.rpc('app_login', {
+        p_email: email.trim(),
+        p_password: password,
+      }),
+      timeout,
+    ])
+    data = res.data
+    error = res.error
+  } catch (err) {
+    if (timedOut) throw err
+    throw new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.')
+  }
+
+  if (error || !Array.isArray(data) || data.length === 0 || !(data[0] as Record<string, unknown> | undefined)?.token) {
     throw new Error('Credenciais inválidas. Verifique e tente novamente.')
   }
 
@@ -129,12 +151,20 @@ export async function updateCompanyConnection(id: number, url: string, key: stri
   if (error) throw new Error(error.message)
 }
 
-/** Sessão em sessionStorage: sobrevive a recarregamentos (F5), mas exige login ao fechar a aba. */
+/** Sessão em sessionStorage; se o storage estiver bloqueado (iframe/privado), fica em memória. */
+let memorySession: SessionUser | null = null
+
 export function saveSession(user: SessionUser): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
+  memorySession = user
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
+  } catch {
+    // storage bloqueado: sessão vive só na memória desta aba
+  }
 }
 
 export function loadSession(): SessionUser | null {
+  if (memorySession) return memorySession
   try {
     const raw = sessionStorage.getItem(SESSION_KEY)
     if (!raw) return null
@@ -150,6 +180,11 @@ export function loadSession(): SessionUser | null {
 }
 
 export function clearSession(): void {
-  sessionStorage.removeItem(SESSION_KEY)
+  memorySession = null
+  try {
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    // ignore
+  }
   resetAuthClient()
 }

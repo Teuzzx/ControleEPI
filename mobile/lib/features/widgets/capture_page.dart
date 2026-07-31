@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
@@ -41,6 +42,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   String? _photoPath;
   String? _signaturePath;
+  bool _savingSignature = false;
 
   @override
   void dispose() {
@@ -54,6 +56,57 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     await file.create(recursive: true);
     await file.writeAsBytes(bytes);
     return file.path;
+  }
+
+  /// Exporta a assinatura em PNG. Tenta o caminho nativo do pacote e, se
+  /// falhar (alguns Android travam no `Picture.toImage`), usa um renderizador
+  /// 100% em Dart com o pacote `image` — mesma lógica do export web do pacote.
+  Future<Uint8List?> _exportSignaturePng() async {
+    try {
+      final png = await _sigCtrl.toPngBytes();
+      if (png != null && png.isNotEmpty) return png;
+    } catch (_) {
+      // cai no fallback
+    }
+
+    final points = _sigCtrl.value;
+    if (points.isEmpty) return null;
+
+    const stroke = 3.0;
+    double minX = double.infinity, minY = double.infinity;
+    double maxX = double.negativeInfinity, maxY = double.negativeInfinity;
+    for (final p in points) {
+      final o = p.offset;
+      if (o.dx < minX) minX = o.dx;
+      if (o.dy < minY) minY = o.dy;
+      if (o.dx > maxX) maxX = o.dx;
+      if (o.dy > maxY) maxY = o.dy;
+    }
+
+    final w = (maxX - minX + stroke * 2).ceil().clamp(1, 4096);
+    final h = (maxY - minY + stroke * 2).ceil().clamp(1, 4096);
+
+    final out = img.Image(width: w, height: h, numChannels: 4);
+    img.fill(out, color: img.ColorRgba8(255, 255, 255, 255));
+
+    final pen = img.ColorRgba8(26, 29, 46, 255);
+    final dx = (minX - stroke).toDouble();
+    final dy = (minY - stroke).toDouble();
+
+    for (var i = 0; i < points.length - 1; i++) {
+      final x1 = (points[i].offset.dx - dx).toInt();
+      final y1 = (points[i].offset.dy - dy).toInt();
+      if (points[i + 1].type == PointType.move) {
+        final x2 = (points[i + 1].offset.dx - dx).toInt();
+        final y2 = (points[i + 1].offset.dy - dy).toInt();
+        img.drawLine(out,
+            x1: x1, y1: y1, x2: x2, y2: y2, color: pen, thickness: stroke.toInt());
+      } else {
+        img.fillCircle(out,
+            x: x1, y: y1, radius: stroke.toInt(), color: pen);
+      }
+    }
+    return Uint8List.fromList(img.encodePng(out));
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -71,12 +124,28 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   Future<void> _saveSignature() async {
-    if (_sigCtrl.isEmpty) return;
-    final png = await _sigCtrl.toPngBytes();
-    if (png == null) return;
-    final path = await _saveToDocuments(png, 'png');
-    if (!mounted) return;
-    setState(() => _signaturePath = path);
+    if (_sigCtrl.isEmpty || _savingSignature) return;
+    setState(() => _savingSignature = true);
+    try {
+      final png = await _exportSignaturePng();
+      if (png == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Desenhe a assinatura para salvá-la.')),
+        );
+        return;
+      }
+      final path = await _saveToDocuments(png, 'png');
+      if (!mounted) return;
+      setState(() => _signaturePath = path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível salvar a assinatura: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingSignature = false);
+    }
   }
 
   void _confirm() {
@@ -207,10 +276,24 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                     const SizedBox(width: 12),
                     TextButton.icon(
-                      onPressed: _sigCtrl.isEmpty ? null : _saveSignature,
-                      icon: const Icon(Icons.check_circle_outline, color: kGreen, size: 18),
-                      label: const Text('Salvar assinatura',
-                          style: TextStyle(color: kGreen, fontWeight: FontWeight.w600)),
+                      onPressed: _sigCtrl.isEmpty || _savingSignature
+                          ? null
+                          : _saveSignature,
+                      icon: _savingSignature
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: kGreen),
+                            )
+                          : const Icon(Icons.check_circle_outline,
+                              color: kGreen, size: 18),
+                      label: Text(
+                        _savingSignature ? 'Salvando...' : 'Salvar assinatura',
+                        style: TextStyle(
+                            color: _savingSignature ? kMuted : kGreen,
+                            fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
