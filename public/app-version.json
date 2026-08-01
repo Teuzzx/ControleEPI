@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
-  "notes": "Notificações: alerta automático de estoque baixo, avisos da matriz no sino (também no app) e aviso de nova versão no sistema web.",
+  "version": "1.0.8",
+  "notes": "Nova tela de login premium: visual renovado com foto de EPI, card glassmorphism, campos com glow roxo e selo de segurança.",
   "apkUrl": "/Controle-EPI.apk"
 }
