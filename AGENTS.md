@@ -39,3 +39,13 @@ This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin con
 - Use double quotes for strings containing apostrophes (`"We're here to help"`), or escape them in single-quoted strings. An unescaped apostrophe in a single-quoted string breaks the build.
 - Ensure JSX tags are closed and braces are balanced.
 - Export components as default exports.
+
+## Supabase (banco de dados)
+
+- O usuário quer que TODAS as alterações de SQL editor sejam aplicadas automaticamente pelo agente (ele não roda nada no painel do Supabase).
+- O Access Token da conta Supabase está no `.env` local (variável `SUPABASE_ACCESS_TOKEN`). O `.env` é gitignored — nunca commitar o token.
+- Projeto matriz: `lqbfejbnnpukwiipwfxy` (URL: https://lqbfejbnnpukwiipwfxy.supabase.co).
+- Para aplicar SQL: `powershell -File scripts/run-supabase-sql.ps1 -File supabase/migrations/XXXX_nome.sql` (ou `-Query "..."` para consultas avulsas).
+- Sempre que criar/alterar uma migration, aplicar NO banco da matriz com esse script (as funções `app_*` do schema `public` vivem no banco da matriz).
+- Histórico de migrations aplicadas: 0000 (users seed), 0001 (segurança matriz), 0002 (filiais), 0003 (mobile), 0004 (notificações), 0005 (gestão de usuários), 0006 (fix segurança guards `coalesce(app_session_role(),'')`).
+- Filiais têm o próprio projeto Supabase, sem RLS (0002); a matriz acessa o banco de cada filial com a URL/chave anon gravada em `companies`.

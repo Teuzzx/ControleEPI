@@ -1,4 +1,4 @@
--- ════════════════════════════════════════════════════════════════════════
+﻿-- ════════════════════════════════════════════════════════════════════════
 -- Controle de EPI — Gestão de usuários (banco da MATRIZ)
 -- Executar NO SQL Editor do Supabase da MATRIZ.
 --
@@ -14,7 +14,7 @@ create or replace function public.app_create_user(
 )
 returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
-  if public.app_session_role() <> 'matriz' then
+  if coalesce(public.app_session_role(), '') <> 'matriz' then
     raise exception 'Apenas a matriz pode criar usuários.';
   end if;
   if p_role not in ('matriz', 'filial') then
@@ -41,7 +41,7 @@ returns table (
 )
 language plpgsql security definer set search_path = public, extensions as $$
 begin
-  if public.app_session_role() <> 'matriz' then
+  if coalesce(public.app_session_role(), '') <> 'matriz' then
     raise exception 'Apenas a matriz pode listar usuários.';
   end if;
   return query
@@ -58,7 +58,7 @@ create or replace function public.app_delete_user(p_id bigint)
 returns void language plpgsql security definer set search_path = public, extensions as $$
 declare v_me bigint;
 begin
-  if public.app_session_role() <> 'matriz' then
+  if coalesce(public.app_session_role(), '') <> 'matriz' then
     raise exception 'Apenas a matriz pode excluir usuários.';
   end if;
   select user_id into v_me from public.sessions
@@ -75,7 +75,7 @@ grant execute on function public.app_delete_user(bigint) to anon, authenticated;
 create or replace function public.app_reset_user_password(p_id bigint, p_password text)
 returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
-  if public.app_session_role() <> 'matriz' then
+  if coalesce(public.app_session_role(), '') <> 'matriz' then
     raise exception 'Apenas a matriz pode alterar senhas.';
   end if;
   if not exists (select 1 from public.users where id = p_id) then
@@ -85,3 +85,4 @@ begin
 end $$;
 
 grant execute on function public.app_reset_user_password(bigint, text) to anon, authenticated;
+
