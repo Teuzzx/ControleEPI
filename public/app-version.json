@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9",
-  "notes": "Popups centralizados e corrigidos, botão de testar servidor removido da tela de login e criação de categorias corrigida.",
+  "version": "1.0.10",
+  "notes": "Corrigido o erro 'App não configurado' — credenciais do servidor agora embutidas no app.",
   "apkUrl": "/Controle-EPI.apk"
 }
