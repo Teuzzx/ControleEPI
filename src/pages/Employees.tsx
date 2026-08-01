@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Plus, Edit2, Trash2, Eye, X, ChevronDown } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import Modal from '../components/ui/Modal'
 import type { Employee } from '../data/mock'
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
@@ -259,7 +260,7 @@ export default function Employees() {
 
       {/* Detail Modal */}
       {(mode === 'view' || mode === 'edit') && selected && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+        <Modal onClose={closeModal}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -322,12 +323,12 @@ export default function Employees() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Add / Edit Modal */}
       {(mode === 'add' || (mode === 'edit' && selected)) && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+        <Modal onClose={closeModal}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em' }}>
@@ -418,7 +419,7 @@ export default function Employees() {
               }} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{mode === 'edit' ? 'Salvar Alterações' : 'Salvar Colaborador'}</button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
     </div>

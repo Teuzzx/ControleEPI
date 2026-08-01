@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, X, Package, Warehouse, Trash2 } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import Modal from '../components/ui/Modal'
 
 interface VariantRow {
   color: string
@@ -179,7 +180,7 @@ export default function Entries() {
 
       {/* Add modal */}
       {showAdd && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+        <Modal onClose={() => setShowAdd(false)}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 620, borderRadius: 20, padding: '32px', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <div>
@@ -280,7 +281,7 @@ export default function Entries() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

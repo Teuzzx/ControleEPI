@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
-import { FileText, Download, ChevronDown } from 'lucide-react'
+import { FileText, Download, ChevronDown, FileSpreadsheet } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const REPORT_TYPES = [
   { id: 'stock',         label: 'Estoque Atual',          icon: '📦', desc: 'Situação atual de todos os EPIs' },
@@ -40,6 +42,66 @@ function generateCSV(filename: string, headers: string[], rows: string[][]) {
   URL.revokeObjectURL(url)
 }
 
+function generatePDF(filename: string, title: string, headers: string[], rows: string[][]) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const now = new Date()
+  const dateStr = now.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+
+  doc.setFillColor(13, 15, 24)
+  doc.rect(0, 0, 297, 24, 'F')
+  doc.setFillColor(99, 102, 241)
+  doc.rect(0, 24, 297, 1.4, 'F')
+  doc.setTextColor(232, 234, 246)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.text('Controle de EPI', 14, 11)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  doc.setTextColor(156, 163, 175)
+  doc.text('by Norion', 14, 16.5)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(255, 255, 255)
+  doc.text(title, 297 - 14, 12, { align: 'right' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(199, 203, 226)
+  doc.text(`Gerado em ${dateStr}`, 297 - 14, 18, { align: 'right' })
+
+  autoTable(doc, {
+    head: [headers],
+    body: rows.map((r) => r.map((c) => c || '—')),
+    startY: 30,
+    margin: { left: 12, right: 12 },
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.5,
+      cellPadding: 2.6,
+      textColor: [226, 228, 240],
+      lineColor: [45, 48, 80],
+      lineWidth: 0.15,
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      fillColor: [99, 102, 241],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+    },
+    alternateRowStyles: {
+      fillColor: [28, 30, 46],
+    },
+    didDrawPage: (data: { pageNumber: number }) => {
+      const pageCount = doc.getNumberOfPages()
+      doc.setFontSize(8)
+      doc.setTextColor(120, 127, 160)
+      doc.text(`Página ${data.pageNumber} de ${pageCount}`, 297 / 2, 205, { align: 'center' })
+    },
+  })
+
+  doc.save(`${filename}.pdf`)
+}
+
 export default function Reports() {
   const { employees, epis, movements, loading } = useSupabaseData()
   const [selectedReport, setSelectedReport] = useState('stock')
@@ -58,63 +120,80 @@ export default function Reports() {
     [epis]
   )
 
-  const handleGenerate = () => {
+  const handleGenerate = (format: 'pdf' | 'csv') => {
     setGenerating(true)
     setTimeout(() => {
       const now = new Date()
       const dateStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-')
       const periodLabel = period === 'week' ? 'Semanal' : period === 'month' ? 'Mensal' : period === 'quarter' ? 'Trimestral' : 'Anual'
 
+      let title = ''
+      let headers: string[] = []
+      let rows: string[][] = []
+
       switch (selectedReport) {
         case 'stock': {
-          const headers = ['Produto', 'Categoria', 'Fabricante', 'Qtd Total', 'Qtd Mínima', 'Status', 'Localização']
-          const rows = epis.map((e) => [e.name, e.category, e.manufacturer, String(e.totalQuantity), String(e.minQuantity), e.status, e.location])
-          generateCSV(`estoque-atual-${dateStr}`, headers, rows)
+          title = 'Estoque Atual'
+          headers = ['Produto', 'Categoria', 'Fabricante', 'Qtd Total', 'Qtd Mínima', 'Status', 'Localização']
+          rows = epis.map((e) => [e.name, e.category, e.manufacturer, String(e.totalQuantity), String(e.minQuantity), e.status, e.location])
           break
         }
         case 'low_stock': {
-          const headers = ['Produto', 'Categoria', 'Qtd Atual', 'Qtd Mínima', 'Status', 'Localização']
-          const rows = lowStockItems.map((e) => [e.name, e.category, String(e.totalQuantity), String(e.minQuantity), e.status, e.location])
-          generateCSV(`estoque-critico-${dateStr}`, headers, rows)
+          title = 'Estoque Crítico'
+          headers = ['Produto', 'Categoria', 'Qtd Atual', 'Qtd Mínima', 'Status', 'Localização']
+          rows = lowStockItems.map((e) => [e.name, e.category, String(e.totalQuantity), String(e.minQuantity), e.status, e.location])
           break
         }
         case 'movements': {
-          const headers = ['#', 'Tipo', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Operador', 'Obs']
-          const rows = movements.map((m) => [String(m.id), m.type, m.employee, m.epi, String(m.quantity), m.date, m.operator, m.notes || ''])
-          generateCSV(`movimentacoes-${dateStr}`, headers, rows)
+          title = 'Movimentações'
+          headers = ['#', 'Tipo', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Operador', 'Obs']
+          rows = movements.map((m) => [String(m.id), m.type, m.employee, m.epi, String(m.quantity), m.date, m.operator, m.notes || ''])
           break
         }
         case 'employee': {
-          const headers = ['Nome', 'Matrícula', 'CPF', 'Cargo', 'Equipe', 'Setor', 'Empresa', 'Admissão', 'Status']
-          const rows = employees.map((e) => [e.name, e.registration, e.cpf, e.role, e.team, e.sector, e.company, e.admissionDate, e.status])
-          generateCSV(`colaboradores-${dateStr}`, headers, rows)
+          title = 'Histórico de Colaborador'
+          headers = ['Nome', 'Matrícula', 'CPF', 'Cargo', 'Equipe', 'Setor', 'Empresa', 'Admissão', 'Status']
+          rows = employees.map((e) => [e.name, e.registration, e.cpf, e.role, e.team, e.sector, e.company, e.admissionDate, e.status])
+          break
+        }
+        case 'product': {
+          title = 'Histórico de Produto'
+          headers = ['EPI', 'Tipo', 'Colaborador', 'Qtd', 'Data', 'Operador', 'Obs']
+          rows = movements.map((m) => [m.epi, m.type, m.employee, String(m.quantity), m.date, m.operator, m.notes || ''])
           break
         }
         case 'top_products': {
-          const headers = ['Produto', 'Quantidade']
-          const rows = [...epis].sort((a, b) => b.totalQuantity - a.totalQuantity).map((e) => [e.name, String(e.totalQuantity)])
-          generateCSV(`produtos-mais-distribuidos-${dateStr}`, headers, rows)
+          title = 'Produtos Mais Distribuídos'
+          headers = ['Produto', 'Quantidade']
+          rows = [...epis].sort((a, b) => b.totalQuantity - a.totalQuantity).map((e) => [e.name, String(e.totalQuantity)])
           break
         }
         case 'devolutions': {
+          title = 'Devoluções'
           const devs = movements.filter((m) => m.type === 'Devolução')
-          const headers = ['#', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Obs']
-          const rows = devs.map((m) => [String(m.id), m.employee, m.epi, String(m.quantity), m.date, m.notes || ''])
-          generateCSV(`devolucoes-${dateStr}`, headers, rows)
+          headers = ['#', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Obs']
+          rows = devs.map((m) => [String(m.id), m.employee, m.epi, String(m.quantity), m.date, m.notes || ''])
           break
         }
         default: {
-          const headers = ['Relatório', 'Período', 'Gerado em']
-          const rows = [[`${REPORT_TYPES.find((r) => r.id === selectedReport)?.label}`, periodLabel, now.toLocaleString('pt-BR')]]
-          generateCSV(`relatorio-${dateStr}`, headers, rows)
+          title = `${REPORT_TYPES.find((r) => r.id === selectedReport)?.label ?? 'Relatório'}`
+          headers = ['Relatório', 'Período', 'Gerado em']
+          rows = [[title, periodLabel, now.toLocaleString('pt-BR')]]
         }
+      }
+
+      const base = `${selectedReport}-${dateStr}`
+      if (format === 'pdf') {
+        generatePDF(base, `${title} (${periodLabel})`, headers, rows)
+      } else {
+        generateCSV(base, headers, rows)
       }
       setGenerating(false)
     }, 800)
   }
 
-  const handleExportExcel = () => handleGenerate()
-  const handleExportPDF = () => handleGenerate()
+  const handleExportExcel = () => handleGenerate('csv')
+  const handleExportPDF = () => handleGenerate('pdf')
 
   const isEmpty = employees.length === 0 && epis.length === 0 && movements.length === 0
 
@@ -198,7 +277,7 @@ export default function Reports() {
 
           {/* Export buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-            <button onClick={handleGenerate} style={{
+            <button onClick={() => handleGenerate('pdf')} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px',
               background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', borderRadius: 10,
               color: 'white', fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 600,
@@ -211,15 +290,15 @@ export default function Reports() {
               {generating ? (
                 <><span style={{ animation: 'spin-slow 0.8s linear infinite', display: 'flex' }}>⟳</span> Gerando...</>
               ) : (
-                <><FileText size={14} /> Gerar Relatório</>
+                <><FileText size={14} /> Gerar Relatório em PDF</>
               )}
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={handleExportExcel} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 9, color: '#4ADE80', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-                <Download size={13} /> CSV
+                <FileSpreadsheet size={13} /> CSV
               </button>
               <button onClick={handleExportPDF} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9, color: '#F87171', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-                <Download size={13} /> CSV
+                <Download size={13} /> PDF
               </button>
             </div>
           </div>

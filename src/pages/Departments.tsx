@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Plus, Edit2, Trash2, X, Users } from 'lucide-react'
+import { Plus, X, Users, UsersRound, Trash2, Edit2 } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import Modal from '../components/ui/Modal'
 import type { Department } from '../data/mock'
 
 const COLORS = ['#6366F1', '#22D3EE', '#F59E0B', '#10B981', '#F43F5E', '#8B5CF6', '#EC4899', '#F97316']
@@ -161,7 +162,7 @@ export default function Departments() {
 
       {/* Add / Edit modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
+        <Modal onClose={() => setShowModal(false)}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 440, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em' }}>
@@ -192,7 +193,7 @@ export default function Departments() {
               <button onClick={handleSave} style={{ flex: 1, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{editing ? 'Salvar Alterações' : 'Criar Departamento'}</button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

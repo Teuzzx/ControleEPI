@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, Megaphone, Trash2, CheckCircle2, AlertCircle, Send } from 'lucide-react'
 import { fetchCompanies, type Company } from '../lib/auth'
 import { createCompanyClient } from '../lib/supabase'
+import Modal from '../components/ui/Modal'
 import { useDataClient } from '../lib/clientContext'
 import type { Notification } from '../hooks/useSupabaseData'
 
@@ -230,7 +231,7 @@ export default function Avisos() {
 
       {/* New aviso modal */}
       {showNew && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowNew(false)}>
+        <Modal onClose={() => setShowNew(false)}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 540, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -306,7 +307,7 @@ export default function Avisos() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

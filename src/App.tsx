@@ -13,6 +13,7 @@ import Entries from './pages/Entries'
 import Companies from './pages/Companies'
 import Distribution from './pages/Distribution'
 import Avisos from './pages/Avisos'
+import Settings from './pages/Settings'
 import { DataClientProvider } from './lib/clientContext'
 import { loadSession, saveSession, clearSession, getAuthClient, createSessionClient, type SessionUser } from './lib/auth'
 
@@ -28,9 +29,10 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   companies:    { title: 'Empresas',             subtitle: 'Rede de empresas vinculadas' },
   distribution: { title: 'Distribuição',         subtitle: 'Envio de EPIs para as empresas' },
   avisos:       { title: 'Avisos',               subtitle: 'Comunicados para a rede de empresas' },
+  settings:     { title: 'Configurações',        subtitle: 'Usuários e acesso ao sistema' },
 }
 
-function PageComponent({ page, onNavigate }: { page: Page; onNavigate?: (page: Page) => void }) {
+function PageComponent({ page, onNavigate, userRole }: { page: Page; onNavigate?: (page: Page) => void; userRole: 'matriz' | 'filial' }) {
   switch (page) {
     case 'overview':     return <Overview onNavigate={onNavigate} />
     case 'employees':    return <Employees />
@@ -43,6 +45,7 @@ function PageComponent({ page, onNavigate }: { page: Page; onNavigate?: (page: P
     case 'companies':    return <Companies />
     case 'distribution': return <Distribution />
     case 'avisos':       return <Avisos />
+    case 'settings':     return <Settings userRole={userRole} />
     default:             return <Overview />
   }
 }
@@ -172,7 +175,7 @@ export default function App() {
               transition: 'opacity 0.15s ease, transform 0.15s ease',
             }}
           >
-            <PageComponent page={currentPage} onNavigate={handleNavigate} />
+            <PageComponent page={currentPage} onNavigate={handleNavigate} userRole={user.role} />
           </main>
         </div>
       </div>

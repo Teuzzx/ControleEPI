@@ -161,6 +161,56 @@ export async function updateCompanyConnection(id: number, url: string, key: stri
   if (error) throw new Error(error.message)
 }
 
+export interface UserRow {
+  id: number
+  name: string
+  email: string
+  role: 'matriz' | 'filial'
+  company_id: number | null
+  company_name: string | null
+  created_at: string
+}
+
+/** Lista usuários (matriz). Requer migration 0005 no banco. */
+export async function fetchUsers(): Promise<UserRow[]> {
+  const { data, error } = await getAuthClient().rpc('app_list_users')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as UserRow[]
+}
+
+/** Matriz cria usuário com papel e empresa designada. Requer migration 0005. */
+export async function createUser(params: {
+  name: string
+  email: string
+  password: string
+  role: 'matriz' | 'filial'
+  companyId?: number | null
+}): Promise<void> {
+  const { error } = await getAuthClient().rpc('app_create_user', {
+    p_name: params.name.trim(),
+    p_email: params.email.trim(),
+    p_password: params.password,
+    p_role: params.role,
+    p_company_id: params.companyId ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Matriz exclui um usuário. Requer migration 0005. */
+export async function deleteUser(id: number): Promise<void> {
+  const { error } = await getAuthClient().rpc('app_delete_user', { p_id: id })
+  if (error) throw new Error(error.message)
+}
+
+/** Matriz redefine a senha de um usuário. Requer migration 0005. */
+export async function resetUserPassword(id: number, password: string): Promise<void> {
+  const { error } = await getAuthClient().rpc('app_reset_user_password', {
+    p_id: id,
+    p_password: password,
+  })
+  if (error) throw new Error(error.message)
+}
+
 /** Sessão em sessionStorage; se o storage estiver bloqueado (iframe/privado), fica em memória. */
 let memorySession: SessionUser | null = null
 

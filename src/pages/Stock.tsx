@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Plus, Eye, X, Package, ChevronDown, ChevronRight, Edit2, Trash2, Save } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import Modal from '../components/ui/Modal'
 import type { Epi } from '../data/mock'
 
 interface VariantRow {
@@ -388,7 +389,7 @@ export default function Stock() {
 
       {/* Add / Edit modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
+        <Modal onClose={() => setShowModal(false)}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 640, borderRadius: 20, padding: '32px', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <div>
@@ -523,7 +524,7 @@ export default function Stock() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
     </div>

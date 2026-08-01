@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Edit2, Trash2, X, Tag } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
+import Modal from '../components/ui/Modal'
 
 const COLORS = ['#6366F1', '#22D3EE', '#F59E0B', '#10B981', '#F43F5E', '#8B5CF6', '#EC4899', '#F97316']
 const ICONS_LIST = ['🪖', '👢', '🥽', '🎧', '😷', '🧤', '👕', '🔗', '⚙️', '🏗️', '🔦', '🦺']
@@ -110,7 +111,7 @@ export default function Categories() {
       </div>
 
       {showModal && editing && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && (setShowModal(false), setEditing(null))}>
+        <Modal onClose={() => { setShowModal(false); setEditing(null) }}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 440, borderRadius: 20, padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0 }}>
@@ -153,7 +154,7 @@ export default function Categories() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

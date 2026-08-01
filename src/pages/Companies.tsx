@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, Building2, KeyRound, Database, Users, CheckCircle2, AlertCircle } from 'lucide-react'
 import { fetchCompanies, createCompanyAndUser, updateCompanyConnection, type Company } from '../lib/auth'
 import { createCompanyClient } from '../lib/supabase'
+import Modal from '../components/ui/Modal'
 
 const COLORS = ['#6366F1', '#22D3EE', '#F59E0B', '#10B981', '#F43F5E', '#8B5CF6', '#EC4899', '#F97316']
 
@@ -275,7 +276,7 @@ export default function Companies() {
 
       {/* Add modal */}
       {showAdd && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+        <Modal onClose={() => setShowAdd(false)}>
           <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.02em' }}>
@@ -355,7 +356,7 @@ export default function Companies() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

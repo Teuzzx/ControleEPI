@@ -17,6 +17,7 @@ export type Page =
   | 'companies'
   | 'distribution'
   | 'avisos'
+  | 'settings'
 
 interface NavItem {
   id: Page
@@ -283,7 +284,6 @@ export default function Sidebar({ current, onNavigate, onLogout, userName, userR
       }}>
         {[
           { icon: <Bell size={16} />, label: 'Notificações' },
-          { icon: <Settings size={16} />, label: 'Configurações' },
         ].map(({ icon, label }) => (
           <button
             key={label}
@@ -310,6 +310,45 @@ export default function Sidebar({ current, onNavigate, onLogout, userName, userR
             {!collapsed && <span>{label}</span>}
           </button>
         ))}
+
+        {/* Configurações — gerencia usuários e acesso */}
+        <button
+          onClick={() => onNavigate('settings')}
+          title={collapsed ? 'Configurações' : undefined}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: collapsed ? '9px 0' : '9px 12px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            borderRadius: 9, border: 'none', cursor: 'pointer',
+            background: current === 'settings' ? 'rgba(99,102,241,0.14)' : 'transparent',
+            color: current === 'settings' ? '#A5B4FC' : '#3D4257',
+            fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: current === 'settings' ? 600 : 500,
+            position: 'relative',
+            transition: 'background 0.15s, color 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            if (current !== 'settings') {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+              e.currentTarget.style.color = '#6B7280'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (current !== 'settings') {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = '#3D4257'
+            }
+          }}
+        >
+          {current === 'settings' && !collapsed && (
+            <div style={{
+              position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+              width: 3, height: 20, borderRadius: '0 2px 2px 0',
+              background: 'linear-gradient(to bottom, #6366F1, #818CF8)',
+            }} />
+          )}
+          <Settings size={16} />
+          {!collapsed && <span style={{ flex: 1, textAlign: 'left' }}>Configurações</span>}
+        </button>
 
         {/* User */}
         <div style={{
