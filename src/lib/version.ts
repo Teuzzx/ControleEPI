@@ -2,7 +2,7 @@
  * Versão atual do sistema web (bump manual a cada release).
  * A mesma versão deve constar no `app-version.json` publicado no site.
  */
-export const APP_VERSION = '1.0.7'
+export const APP_VERSION = '1.0.8'
 
 export interface AppUpdate {
   version: string
