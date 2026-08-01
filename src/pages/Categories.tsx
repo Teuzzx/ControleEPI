@@ -12,7 +12,10 @@ export default function Categories() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<CategoryForm | null>(null)
 
-  const openAdd = () => { setEditing(null); setShowModal(true) }
+  const openAdd = () => {
+    setEditing({ name: '', description: '', icon: '🪖', color: '#6366F1' })
+    setShowModal(true)
+  }
   const openEdit = (cat: { id: number; name: string; description: string; icon: string; color: string }) => {
     setEditing({ id: cat.id, name: cat.name, description: cat.description, icon: cat.icon, color: cat.color })
     setShowModal(true)

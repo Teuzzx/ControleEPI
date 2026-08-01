@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers.dart';
 
@@ -239,8 +237,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   bool _obscure = true;
   bool _remember = false;
   String? _error;
-  String _conn = 'idle'; // idle | testing | online | offline
-  String? _diagDetail;
 
   @override
   void dispose() {
@@ -271,35 +267,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _testConnection() async {
-    if (_conn == 'testing') return;
-    setState(() {
-      _conn = 'testing';
-      _diagDetail = null;
-    });
-    try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 8);
-      final request = await client
-          .getUrl(Uri.parse('${Config.supabaseMatrizUrl}/rest/v1/'))
-          .timeout(const Duration(seconds: 8));
-      request.headers.set('apikey', Config.supabaseMatrizAnonKey);
-      final response = await request.close().timeout(const Duration(seconds: 8));
-      final status = response.statusCode;
-      final body = await response.transform(const SystemEncoding().decoder).join();
-      client.close(force: true);
-      setState(() {
-        _conn = status >= 200 && status < 500 ? 'online' : 'offline';
-        _diagDetail = 'Servidor respondeu HTTP $status.\n\n$body';
-      });
-    } catch (e) {
-      setState(() {
-        _conn = 'offline';
-        _diagDetail = 'FALHOU. Detalhe técnico:\n$e';
-      });
     }
   }
 
@@ -675,28 +642,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                           ),
                                   ),
                                   const SizedBox(height: 14),
-
-                                  // Botão secundário — testar conexão
-                                  _connWidget(),
-                                  if (_diagDetail != null) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF171A29),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                            color: const Color(0xFF23273C)),
-                                      ),
-                                      child: Text(
-                                        _diagDetail!,
-                                        style: const TextStyle(
-                                            color: kSub,
-                                            fontSize: 10.5,
-                                            fontFamily: 'monospace'),
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),
@@ -770,62 +715,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _connWidget() {
-    final (icon, label) = switch (_conn) {
-      'testing' => (
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _cPurpleSoft),
-          ),
-          'Testando conexão...'
-        ),
-      'online' => (const Icon(Icons.check_circle_outline,
-          size: 16, color: Color(0xFF4ADE80)), 'Servidor online'),
-      'offline' => (const Icon(Icons.error_outline,
-          size: 16, color: Color(0xFFF87171)), 'Servidor inacessível'),
-      _ => (const Icon(Icons.dns_outlined, size: 16, color: _cPurpleSoft),
-          'Testar conexão com servidor'),
-    };
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.02),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: _conn == 'testing' ? null : _testConnection,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                icon,
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      color: Color(0xFFC7C7D6),
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.arrow_forward, size: 15, color: _cDim),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

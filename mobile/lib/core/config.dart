@@ -8,7 +8,7 @@ class Config {
   static const String supabaseMatrizAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   /// Versão do app instalado (deve bater com `version:` do pubspec.yaml).
-  static const String appVersion = '1.0.8';
+  static const String appVersion = '1.0.9';
 
   /// Site onde ficam o `app-version.json` e o APK (Vercel).
   static const String appHomeUrl = String.fromEnvironment(

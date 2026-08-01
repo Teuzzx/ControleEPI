@@ -1,17 +1,15 @@
 import { useState, type FormEvent, type MouseEvent } from 'react'
 import {
   Eye, EyeOff, Shield, HardHat, Mail, Lock, ArrowRight,
-  Loader2, AlertCircle, CheckCircle2, Server, ShieldCheck,
+  Loader2, AlertCircle, CheckCircle2, ShieldCheck,
 } from 'lucide-react'
 import { login, type SessionUser } from '../../lib/auth'
-import { supabaseUrl } from '../../lib/supabase'
 
 interface Props {
   onLogin: (user: SessionUser) => void
 }
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
-type ConnState = 'idle' | 'testing' | 'online' | 'offline'
 
 const BG_PRIMARY = 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=1600&q=80'
 const BG_FALLBACK = 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1600&q=80'
@@ -35,7 +33,6 @@ export default function LoginPage({ onLogin }: Props) {
   const [remember, setRemember] = useState(false)
   const [authState, setAuthState] = useState<AuthState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
-  const [connState, setConnState] = useState<ConnState>('idle')
   const [bgFallback, setBgFallback] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
@@ -57,22 +54,6 @@ export default function LoginPage({ onLogin }: Props) {
     } catch (err) {
       setAuthState('error')
       setErrorMsg((err as Error).message)
-    }
-  }
-
-  const handleTestConnection = async () => {
-    if (connState === 'testing') return
-    setConnState('testing')
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 8000)
-    try {
-      const res = await fetch(supabaseUrl, { signal: ctrl.signal })
-      if (!res.ok) throw new Error(String(res.status))
-      setConnState('online')
-    } catch {
-      setConnState('offline')
-    } finally {
-      clearTimeout(timer)
     }
   }
 
@@ -431,34 +412,6 @@ export default function LoginPage({ onLogin }: Props) {
                   ) : (
                     'Acesso liberado!'
                   )}
-                </button>
-
-                {/* Botão secundário */}
-                <button
-                  type="button"
-                  className="login-btn-outline"
-                  onClick={handleTestConnection}
-                  disabled={connState === 'testing'}
-                >
-                  {connState === 'testing' ? (
-                    <Loader2 size={16} strokeWidth={2.4} style={{ animation: 'spin-slow 0.8s linear infinite' }} />
-                  ) : connState === 'online' ? (
-                    <CheckCircle2 size={16} color="#4ADE80" strokeWidth={2.4} />
-                  ) : connState === 'offline' ? (
-                    <AlertCircle size={16} color="#F87171" strokeWidth={2.4} />
-                  ) : (
-                    <Server size={16} color="#8B7CFF" strokeWidth={2.2} />
-                  )}
-                  <span style={{ flex: 1, textAlign: 'left' }}>
-                    {connState === 'testing'
-                      ? 'Testando conexão...'
-                      : connState === 'online'
-                        ? 'Servidor online'
-                        : connState === 'offline'
-                          ? 'Servidor inacessível'
-                          : 'Testar conexão com servidor'}
-                  </span>
-                  <ArrowRight size={15} color="#6E6E84" strokeWidth={2.2} />
                 </button>
               </div>
             </form>

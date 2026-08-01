@@ -1,5 +1,5 @@
 {
-  "version": "1.0.8",
-  "notes": "Nova tela de login premium: visual renovado com foto de EPI, card glassmorphism, campos com glow roxo e selo de segurança.",
+  "version": "1.0.9",
+  "notes": "Popups centralizados e corrigidos, botão de testar servidor removido da tela de login e criação de categorias corrigida.",
   "apkUrl": "/Controle-EPI.apk"
 }
