@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../providers.dart';
+import 'forgot_password_dialog.dart';
 
 // ── Paleta premium ─────────────────────────────────────────────────────────
 const _cBg = Color(0xFF09090F);
@@ -567,7 +568,28 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                         ),
                                       ),
                                       TextButton(
-                                        onPressed: () {},
+                                        onPressed: () async {
+                                          final messenger =
+                                              ScaffoldMessenger.of(context);
+                                          final ok = await showDialog<bool>(
+                                            context: context,
+                                            builder: (_) =>
+                                                const ForgotPasswordDialog(),
+                                          );
+                                          if (ok == true && mounted) {
+                                            _passCtrl.clear();
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                backgroundColor: kGreen,
+                                                content: Text(
+                                                  'Senha redefinida com sucesso! Faça login com a nova senha.',
+                                                  style: TextStyle(
+                                                      color: Colors.white),
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
                                         style: TextButton.styleFrom(
                                           foregroundColor: _cPurpleSoft,
                                           padding: const EdgeInsets.symmetric(

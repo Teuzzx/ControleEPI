@@ -85,4 +85,64 @@ class AuthRepo {
 
     return session;
   }
+
+  /// Solicita o código de recuperação por e-mail (RPC `app_request_password_reset`).
+  static Future<void> requestPasswordReset(String email) async {
+    await _rpc('app_request_password_reset', {
+      'p_email': email.trim(),
+    });
+  }
+
+  /// Redefine a senha com o código recebido (RPC `app_reset_password_with_code`).
+  static Future<void> resetPasswordWithCode(String email, String code, String password) async {
+    await _rpc('app_reset_password_with_code', {
+      'p_email': email.trim(),
+      'p_code': code.trim(),
+      'p_password': password,
+    });
+  }
+
+  static Future<void> _rpc(String fn, Map<String, dynamic> params) async {
+    if (!Config.isConfigured) {
+      throw const AuthException(
+        'App não configurado. Defina SUPABASE_URL e SUPABASE_ANON_KEY no build.',
+      );
+    }
+    final client = SupabaseClient(Config.supabaseMatrizUrl, Config.supabaseMatrizAnonKey);
+    try {
+      await client.rpc(fn, params: params);
+    } catch (e) {
+      throw AuthException(_cleanMessage(e));
+    }
+  }
+
+  /// Traduz exceções da rede/PostgREST para mensagens amigáveis.
+  static String _cleanMessage(Object e) {
+    final msg = e.toString();
+    if (msg.contains('SocketException') ||
+        msg.contains('ClientException') ||
+        msg.contains('Connection') ||
+        msg.contains('TimeoutException') ||
+        msg.contains('HttpException') ||
+        msg.contains('HandshakeException') ||
+        msg.contains('status code 000') ||
+        msg.contains('Failed to connect')) {
+      return 'Sem conexão com o servidor. Verifique a internet do celular e tente de novo.';
+    }
+    if (msg.contains('does not exist') || msg.contains('PGRST')) {
+      return 'Servidor fora de configuração (função não encontrada). Avise o responsável pelo sistema.';
+    }
+    // Erro levantado pelo banco (ex.: "Código inválido ou expirado.") — vem
+    // como PostgrestException com a mensagem da função.
+    if (e is PostgrestException) {
+      final m = e.message.trim();
+      if (m.isNotEmpty && !m.toLowerCase().contains('failed')) return m;
+    }
+    final match = RegExp(r'message:\s*([^,)\n]+)').firstMatch(msg);
+    if (match != null) {
+      final m = match.group(1)?.trim() ?? '';
+      if (m.isNotEmpty) return m;
+    }
+    return 'Erro ao falar com o servidor. Tente de novo.\n\nDetalhe: $msg';
+  }
 }
