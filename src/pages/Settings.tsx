@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, X, UserCog, Shield, Building2, Trash2, KeyRound, AlertCircle, CheckCircle2, Users, Mail, Lock, Send } from 'lucide-react'
-import { fetchUsers, fetchCompanies, createUser, deleteUser, resetUserPassword, fetchEmailConfig, setEmailConfig, type UserRow, type Company, type EmailConfig } from '../lib/auth'
+import { Plus, X, UserCog, Shield, Building2, Trash2, KeyRound, AlertCircle, CheckCircle2, Users, Mail, Lock } from 'lucide-react'
+import { fetchUsers, fetchCompanies, createUser, deleteUser, resetUserPassword, type UserRow, type Company } from '../lib/auth'
 import Modal from '../components/ui/Modal'
 
 export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }) {
@@ -21,11 +21,6 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
     companyId: '' as string,
   })
 
-  const [emailConfig, setEmailConfigState] = useState<EmailConfig | null>(null)
-  const [showEmailForm, setShowEmailForm] = useState(false)
-  const [emailForm, setEmailForm] = useState({ apiKey: '', senderEmail: '' })
-  const [savingEmail, setSavingEmail] = useState(false)
-
   const load = useCallback(async () => {
     setLoading(true)
     setMigrationNeeded(false)
@@ -34,11 +29,6 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
       const [u, c] = await Promise.all([fetchUsers(), fetchCompanies()])
       setUsers(u)
       setCompanies(c)
-      try {
-        setEmailConfigState(await fetchEmailConfig())
-      } catch {
-        setEmailConfigState(null)
-      }
     } catch (err) {
       const msg = (err as Error).message
       if (msg.includes('app_list_users') || msg.includes('does not exist') || msg.includes('PGRST')) {
@@ -109,27 +99,6 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
       setSuccess(`Senha de "${u.name}" redefinida.`)
     } catch (err) {
       setErrorMsg((err as Error).message)
-    }
-  }
-
-  const handleSaveEmail = async () => {
-    if (!emailForm.senderEmail.trim()) {
-      setErrorMsg('Informe o e-mail do remetente (o mesmo verificado na Brevo).')
-      return
-    }
-    setSavingEmail(true)
-    setErrorMsg('')
-    setSuccess('')
-    try {
-      await setEmailConfig(emailForm.apiKey, emailForm.senderEmail)
-      setEmailConfigState(await fetchEmailConfig())
-      setShowEmailForm(false)
-      setEmailForm({ apiKey: '', senderEmail: '' })
-      setSuccess('E-mail de recuperação configurado com sucesso!')
-    } catch (err) {
-      setErrorMsg((err as Error).message)
-    } finally {
-      setSavingEmail(false)
     }
   }
 
@@ -336,94 +305,6 @@ grant execute on function public.app_reset_user_password(bigint, text) to anon, 
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Recuperação de senha por e-mail */}
-      <div style={{ background: 'rgba(13,15,24,0.9)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, marginTop: 20 }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Send size={15} color="#67E8F9" />
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 700, color: '#E8EAF6', margin: 0 }}>Recuperação de senha por e-mail</h3>
-            <span className={`badge ${emailConfig?.configured ? 'badge-success' : 'badge-warning'}`}>
-              {emailConfig?.configured ? 'ATIVO' : 'NÃO CONFIGURADO'}
-            </span>
-          </div>
-          {!showEmailForm && (
-            <button onClick={() => {
-              setShowEmailForm(true)
-              setSuccess('')
-              setErrorMsg('')
-            }} style={{
-              display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600,
-              color: '#67E8F9', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.25)',
-              borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
-            }}>
-              {emailConfig?.configured ? 'Editar' : 'Configurar'} <KeyRound size={13} />
-            </button>
-          )}
-        </div>
-        <div style={{ padding: '18px 20px' }}>
-          {!showEmailForm ? (
-            <div style={{ fontSize: 12.5, color: '#9BA3C4', lineHeight: 1.6 }}>
-              {emailConfig?.configured ? (
-                <>
-                  Quando um usuário clicar em <strong style={{ color: '#E8EAF6' }}>"Esqueci minha senha"</strong>, o sistema envia um
-                  código de 6 dígitos para o e-mail dele (válido por 15 minutos). Remetente: <strong style={{ color: '#67E8F9' }}>{emailConfig.sender_email}</strong>.
-                </>
-              ) : (
-                <>
-                  Quando um usuário clicar em <strong style={{ color: '#E8EAF6' }}>"Esqueci minha senha"</strong>, o sistema envia um
-                  código de 6 dígitos para o e-mail dele. Para isso, configure sua conta <strong style={{ color: '#E8EAF6' }}>Brevo</strong>
-                  {' '}(gratuito, 300 e-mails/dia) e clique em{" "}
-                  <strong style={{ color: '#E8EAF6' }}>Configurar</strong>.
-                </>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Chave da API (Brevo)</label>
-                <input
-                  className="input-field"
-                  type="password"
-                  value={emailForm.apiKey}
-                  onChange={(e) => setEmailForm({ ...emailForm, apiKey: e.target.value })}
-                  placeholder="xkeysib-xxxxxxxx"
-                />
-                <div style={{ marginTop: 6, fontSize: 11.5, color: '#3D4257', lineHeight: 1.5 }}>
-                  Crie em app.brevo.com → SMTP & API → API Keys. A chave fica criptografada no banco e nunca é exibida novamente.
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>E-mail remetente (verificado na Brevo)</label>
-                <input
-                  className="input-field"
-                  type="email"
-                  value={emailForm.senderEmail}
-                  onChange={(e) => setEmailForm({ ...emailForm, senderEmail: e.target.value })}
-                  placeholder="no-reply@suaempresa.com.br"
-                />
-                <div style={{ marginTop: 6, fontSize: 11.5, color: '#3D4257', lineHeight: 1.5 }}>
-                  Deve ser o e-mail de remetente verificado em app.brevo.com → Senders & IP.
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button onClick={() => setShowEmailForm(false)} style={{
-                  padding: '10px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.08)', color: '#9BA3C4',
-                  fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}>Cancelar</button>
-                <button onClick={handleSaveEmail} disabled={savingEmail} style={{
-                  padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
-                  border: 'none', color: 'white', fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', opacity: savingEmail ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 7,
-                }}>
-                  <CheckCircle2 size={14} /> {savingEmail ? 'Salvando...' : 'Salvar configuração'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Create user modal */}
