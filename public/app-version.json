@@ -1,5 +1,5 @@
 {
-  "version": "1.0.10",
-  "notes": "Corrigido o erro 'App não configurado' — credenciais do servidor agora embutidas no app.",
+  "version": "1.0.11",
+  "notes": "Nova opção 'Esqueci minha senha' no login: recupera a senha por e-mail com código de 6 dígitos (validade de 15 min).",
   "apkUrl": "/Controle-EPI.apk"
 }
