@@ -211,6 +211,45 @@ export async function resetUserPassword(id: number, password: string): Promise<v
   if (error) throw new Error(error.message)
 }
 
+/** Solicita código de recuperação por e-mail. Requer migration 0007. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase.rpc('app_request_password_reset', {
+    p_email: email.trim(),
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Redefine a senha com o código recebido por e-mail. Requer migration 0007. */
+export async function resetPasswordWithCode(email: string, code: string, password: string): Promise<void> {
+  const { error } = await supabase.rpc('app_reset_password_with_code', {
+    p_email: email.trim(),
+    p_code: code.trim(),
+    p_password: password,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export interface EmailConfig {
+  configured: boolean
+  sender_email: string
+}
+
+/** Matriz consulta se a recuperação por e-mail está configurada. Requer migration 0007. */
+export async function fetchEmailConfig(): Promise<EmailConfig> {
+  const { data, error } = await getAuthClient().rpc('app_get_email_config')
+  if (error) throw new Error(error.message)
+  return ((data?.[0] as EmailConfig | undefined) ?? { configured: false, sender_email: '' })
+}
+
+/** Matriz configura a chave da Brevo e o e-mail remetente. Requer migration 0007. */
+export async function setEmailConfig(apiKey: string, senderEmail: string): Promise<void> {
+  const { error } = await getAuthClient().rpc('app_set_email_config', {
+    p_api_key: apiKey.trim(),
+    p_sender_email: senderEmail.trim(),
+  })
+  if (error) throw new Error(error.message)
+}
+
 /** Sessão em sessionStorage; se o storage estiver bloqueado (iframe/privado), fica em memória. */
 let memorySession: SessionUser | null = null
 

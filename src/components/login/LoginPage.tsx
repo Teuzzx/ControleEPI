@@ -1,9 +1,9 @@
 import { useState, type FormEvent, type MouseEvent } from 'react'
 import {
-  Eye, EyeOff, Shield, HardHat, Mail, Lock, ArrowRight,
-  Loader2, AlertCircle, CheckCircle2, ShieldCheck,
+  Eye, EyeOff, Shield, HardHat, Mail, Lock, ArrowRight, ArrowLeft,
+  Loader2, AlertCircle, CheckCircle2, ShieldCheck, KeyRound, Send,
 } from 'lucide-react'
-import { login, type SessionUser } from '../../lib/auth'
+import { login, requestPasswordReset, resetPasswordWithCode, type SessionUser } from '../../lib/auth'
 
 interface Props {
   onLogin: (user: SessionUser) => void
@@ -33,7 +33,14 @@ export default function LoginPage({ onLogin }: Props) {
   const [remember, setRemember] = useState(false)
   const [authState, setAuthState] = useState<AuthState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const [infoMsg, setInfoMsg] = useState('')
   const [bgFallback, setBgFallback] = useState(false)
+  const [view, setView] = useState<'login' | 'forgot' | 'reset'>('login')
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [resetCode, setResetCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -55,6 +62,78 @@ export default function LoginPage({ onLogin }: Props) {
       setAuthState('error')
       setErrorMsg((err as Error).message)
     }
+  }
+
+  const openForgot = () => {
+    setForgotEmail(identifier)
+    setErrorMsg('')
+    setInfoMsg('')
+    setAuthState('idle')
+    setView('forgot')
+  }
+
+  const handleRequestReset = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail.trim()) {
+      setErrorMsg('Informe seu e-mail de login.')
+      setAuthState('error')
+      return
+    }
+    setAuthState('loading')
+    setErrorMsg('')
+    setInfoMsg('')
+    try {
+      await requestPasswordReset(forgotEmail)
+      setAuthState('success')
+      setInfoMsg('Se existir uma conta com este e-mail, você receberá um código de verificação em instantes.')
+      await new Promise((r) => setTimeout(r, 1000))
+      setView('reset')
+      setAuthState('idle')
+    } catch (err) {
+      setAuthState('error')
+      setErrorMsg((err as Error).message)
+    }
+  }
+
+  const handleSubmitReset = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!resetCode.trim() || !newPassword || !confirmPassword) {
+      setErrorMsg('Preencha o código, a nova senha e a confirmação.')
+      setAuthState('error')
+      return
+    }
+    if (newPassword.length < 6) {
+      setErrorMsg('A nova senha deve ter pelo menos 6 caracteres.')
+      setAuthState('error')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setErrorMsg('As senhas não coincidem. Verifique e tente novamente.')
+      setAuthState('error')
+      return
+    }
+    setAuthState('loading')
+    setErrorMsg('')
+    try {
+      await resetPasswordWithCode(forgotEmail, resetCode, newPassword)
+      setPassword('')
+      setResetCode('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setView('login')
+      setInfoMsg('Senha redefinida com sucesso! Faça login com a nova senha.')
+      setAuthState('idle')
+    } catch (err) {
+      setAuthState('error')
+      setErrorMsg((err as Error).message)
+    }
+  }
+
+  const backToLogin = () => {
+    setView('login')
+    setErrorMsg('')
+    setInfoMsg('')
+    setAuthState('idle')
   }
 
   const spawnRipple = (e: MouseEvent<HTMLButtonElement>) => {
@@ -240,26 +319,47 @@ export default function LoginPage({ onLogin }: Props) {
               }}
             />
 
-            <div style={{ marginBottom: 28, position: 'relative' }}>
-              <h2
-                style={{
-                  margin: '0 0 8px',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: C.text,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Bem-vindo novamente
-              </h2>
-              <p style={{ margin: 0, fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
-                Faça login para continuar utilizando o sistema.
-              </p>
-            </div>
+            {view === 'login' && (
+              <>
+                <div style={{ marginBottom: 28, position: 'relative' }}>
+                  <h2
+                    style={{
+                      margin: '0 0 8px',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 28,
+                      fontWeight: 700,
+                      color: C.text,
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Bem-vindo novamente
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
+                    Faça login para continuar utilizando o sistema.
+                  </p>
+                </div>
 
-            <form onSubmit={handleSubmit} noValidate style={{ position: 'relative' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {infoMsg && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      background: 'rgba(16,185,129,0.08)',
+                      border: '1px solid rgba(16,185,129,0.25)',
+                      borderRadius: 14,
+                      padding: '12px 16px',
+                      marginBottom: 16,
+                      animation: 'blur-reveal 0.35s cubic-bezier(0.16,1,0.3,1) both',
+                    }}
+                  >
+                    <CheckCircle2 size={16} color="#4ADE80" strokeWidth={2} />
+                    <span style={{ fontSize: 13, color: '#4ADE80' }}>{infoMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} noValidate style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {/* E-mail */}
                 <div className="login-field">
                   <Mail
@@ -355,6 +455,7 @@ export default function LoginPage({ onLogin }: Props) {
                   </label>
                   <button
                     type="button"
+                    onClick={openForgot}
                     style={{
                       fontSize: 13,
                       color: '#8B7CFF',
@@ -414,7 +515,297 @@ export default function LoginPage({ onLogin }: Props) {
                   )}
                 </button>
               </div>
-            </form>
+              </form>
+              </>
+            )}
+
+            {view === 'forgot' && (
+              <>
+                <div style={{ marginBottom: 28, position: 'relative' }}>
+                  <h2
+                    style={{
+                      margin: '0 0 8px',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 26,
+                      fontWeight: 700,
+                      color: C.text,
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Recuperar senha
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
+                    Informe o e-mail do seu login. Enviaremos um código de verificação de 6 dígitos.
+                  </p>
+                </div>
+
+                <form onSubmit={handleRequestReset} noValidate style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div className="login-field">
+                      <Mail
+                        size={17}
+                        color="#6E6E84"
+                        strokeWidth={1.9}
+                        style={{ position: 'absolute', left: 18, pointerEvents: 'none' }}
+                      />
+                      <input
+                        className="login-input"
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => { setForgotEmail(e.target.value); if (authState === 'error') setAuthState('idle') }}
+                        placeholder="Seu e-mail de login"
+                        autoComplete="email"
+                        disabled={authState === 'loading' || authState === 'success'}
+                      />
+                    </div>
+
+                    {authState === 'error' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          background: 'rgba(239,68,68,0.08)',
+                          border: '1px solid rgba(239,68,68,0.2)',
+                          borderRadius: 14,
+                          padding: '12px 16px',
+                          animation: 'blur-reveal 0.35s cubic-bezier(0.16,1,0.3,1) both',
+                        }}
+                      >
+                        <AlertCircle size={16} color="#F87171" strokeWidth={2} />
+                        <span style={{ fontSize: 13, color: '#F87171' }}>{errorMsg}</span>
+                      </div>
+                    )}
+
+                    {authState === 'success' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          background: 'rgba(16,185,129,0.08)',
+                          border: '1px solid rgba(16,185,129,0.25)',
+                          borderRadius: 14,
+                          padding: '12px 16px',
+                          animation: 'blur-reveal 0.35s cubic-bezier(0.16,1,0.3,1) both',
+                        }}
+                      >
+                        <CheckCircle2 size={16} color="#4ADE80" strokeWidth={2} />
+                        <span style={{ fontSize: 13, color: '#4ADE80' }}>{infoMsg}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="login-btn-primary"
+                      onClick={spawnRipple}
+                      disabled={authState === 'loading' || authState === 'success'}
+                      style={{ marginTop: 6 }}
+                    >
+                      {authState === 'loading' && <Loader2 size={17} strokeWidth={2.5} style={{ animation: 'spin-slow 0.8s linear infinite' }} />}
+                      {authState === 'success' && <CheckCircle2 size={17} strokeWidth={2.5} />}
+                      {authState === 'idle' || authState === 'error' ? (
+                        <>
+                          Enviar código
+                          <Send size={17} strokeWidth={2.4} />
+                        </>
+                      ) : authState === 'loading' ? (
+                        'Enviando...'
+                      ) : (
+                        'Código enviado!'
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={backToLogin}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 7,
+                        fontSize: 13,
+                        color: '#8A8A9C',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '8px 0',
+                        fontFamily: 'var(--font-sans)',
+                        fontWeight: 600,
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#C4C9E2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#8A8A9C')}
+                    >
+                      <ArrowLeft size={15} /> Voltar ao login
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {view === 'reset' && (
+              <>
+                <div style={{ marginBottom: 28, position: 'relative' }}>
+                  <h2
+                    style={{
+                      margin: '0 0 8px',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 26,
+                      fontWeight: 700,
+                      color: C.text,
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Digite o código
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
+                    Informe o código de 6 dígitos recebido por e-mail e defina a nova senha.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSubmitReset} noValidate style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div className="login-field">
+                      <KeyRound
+                        size={17}
+                        color="#6E6E84"
+                        strokeWidth={1.9}
+                        style={{ position: 'absolute', left: 18, pointerEvents: 'none' }}
+                      />
+                      <input
+                        className="login-input"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={resetCode}
+                        onChange={(e) => { setResetCode(e.target.value.replace(/\D/g, '')); if (authState === 'error') setAuthState('idle') }}
+                        placeholder="Código de 6 dígitos"
+                        style={{ textAlign: 'center', letterSpacing: '0.5em', fontWeight: 700, fontSize: 18 }}
+                        disabled={authState === 'loading' || authState === 'success'}
+                      />
+                    </div>
+
+                    <div className="login-field">
+                      <Lock
+                        size={17}
+                        color="#6E6E84"
+                        strokeWidth={1.9}
+                        style={{ position: 'absolute', left: 18, pointerEvents: 'none' }}
+                      />
+                      <input
+                        className="login-input"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => { setNewPassword(e.target.value); if (authState === 'error') setAuthState('idle') }}
+                        placeholder="Nova senha (mín. 6 caracteres)"
+                        autoComplete="new-password"
+                        disabled={authState === 'loading' || authState === 'success'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        style={{
+                          position: 'absolute',
+                          right: 14,
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#6E6E84',
+                          padding: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          transition: 'color 0.15s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#A3A3B2')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = '#6E6E84')}
+                      >
+                        {showNewPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                    </div>
+
+                    <div className="login-field">
+                      <Lock
+                        size={17}
+                        color="#6E6E84"
+                        strokeWidth={1.9}
+                        style={{ position: 'absolute', left: 18, pointerEvents: 'none' }}
+                      />
+                      <input
+                        className="login-input"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); if (authState === 'error') setAuthState('idle') }}
+                        placeholder="Confirme a nova senha"
+                        autoComplete="new-password"
+                        disabled={authState === 'loading' || authState === 'success'}
+                      />
+                    </div>
+
+                    {authState === 'error' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          background: 'rgba(239,68,68,0.08)',
+                          border: '1px solid rgba(239,68,68,0.2)',
+                          borderRadius: 14,
+                          padding: '12px 16px',
+                          animation: 'blur-reveal 0.35s cubic-bezier(0.16,1,0.3,1) both',
+                        }}
+                      >
+                        <AlertCircle size={16} color="#F87171" strokeWidth={2} />
+                        <span style={{ fontSize: 13, color: '#F87171' }}>{errorMsg}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="login-btn-primary"
+                      onClick={spawnRipple}
+                      disabled={authState === 'loading' || authState === 'success'}
+                      style={{ marginTop: 6 }}
+                    >
+                      {authState === 'loading' && <Loader2 size={17} strokeWidth={2.5} style={{ animation: 'spin-slow 0.8s linear infinite' }} />}
+                      {authState === 'idle' || authState === 'error' ? (
+                        <>
+                          Redefinir senha
+                          <ArrowRight size={17} strokeWidth={2.4} />
+                        </>
+                      ) : (
+                        'Redefinindo...'
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={backToLogin}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 7,
+                        fontSize: 13,
+                        color: '#8A8A9C',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '8px 0',
+                        fontFamily: 'var(--font-sans)',
+                        fontWeight: 600,
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#C4C9E2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#8A8A9C')}
+                    >
+                      <ArrowLeft size={15} /> Voltar ao login
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
 
           {/* ── Selo de segurança ── */}

@@ -15,7 +15,7 @@ import Distribution from './pages/Distribution'
 import Avisos from './pages/Avisos'
 import Settings from './pages/Settings'
 import { DataClientProvider } from './lib/clientContext'
-import { loadSession, saveSession, clearSession, getAuthClient, createSessionClient, type SessionUser } from './lib/auth'
+import { loadSession, saveSession, clearSession, getAuthClient, resetAuthClient, createSessionClient, type SessionUser } from './lib/auth'
 
 const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   overview:     { title: 'Dashboard',           subtitle: 'Visão geral do sistema' },
@@ -73,6 +73,10 @@ export default function App() {
 
   const handleLogin = useCallback((u: SessionUser) => {
     saveSession(u)
+    // O authedClient é criado sem token antes do login; após salvar a sessão,
+    // descarta o cache para o próximo getAuthClient() montar o client autenticado.
+    resetAuthClient()
+    setDataClient(getAuthClient())
     setUser(u)
     setCurrentPage('overview')
   }, [])

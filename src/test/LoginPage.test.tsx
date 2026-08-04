@@ -28,4 +28,22 @@ describe('LoginPage', () => {
     expect(screen.queryByText('Acesso de demonstração')).not.toBeInTheDocument()
     expect(screen.queryByText('admin@norion.com')).not.toBeInTheDocument()
   })
+
+  it('should navigate to the forgot password screen and back', async () => {
+    const user = userEvent.setup()
+    render(<LoginPage onLogin={() => {}} />)
+    await user.click(screen.getByText('Esqueci minha senha'))
+    expect(screen.getByText('Recuperar senha')).toBeInTheDocument()
+    expect(screen.getByText(/código de verificação de 6 dígitos/)).toBeInTheDocument()
+    await user.click(screen.getByText('Voltar ao login'))
+    expect(screen.getByText('Bem-vindo novamente')).toBeInTheDocument()
+  })
+
+  it('should show a message when resetting with empty fields', async () => {
+    const user = userEvent.setup()
+    render(<LoginPage onLogin={() => {}} />)
+    await user.click(screen.getByText('Esqueci minha senha'))
+    await user.click(screen.getByText('Enviar código'))
+    expect(screen.getByText('Informe seu e-mail de login.')).toBeInTheDocument()
+  })
 })
