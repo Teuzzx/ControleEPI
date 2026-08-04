@@ -116,6 +116,8 @@ export default function TopBar({ title, subtitle, companyName, role }: Props) {
       background: 'rgba(7,9,15,0.8)',
       backdropFilter: 'blur(12px)',
       flexShrink: 0,
+      position: 'relative',
+      zIndex: 1000,
     }}>
       {/* Title */}
       <div style={{ flex: 1 }}>
