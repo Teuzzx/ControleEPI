@@ -232,8 +232,9 @@ export default function TopBar({ title, subtitle, companyName, role }: Props) {
               position: 'absolute', top: 44, right: 0,
               width: 380, maxWidth: '90vw',
               borderRadius: 16, padding: '18px',
+              background: 'rgba(9,11,18,0.96)',
               zIndex: 100, animation: 'fade-up 0.2s ease both',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
