@@ -11,6 +11,9 @@ class AppSession {
   final String token;
   final int expiresAt;
 
+  /// Acesso do login: 'web' (só computador), 'mobile' (só app) ou 'both'.
+  final String access;
+
   const AppSession({
     required this.id,
     required this.name,
@@ -22,10 +25,12 @@ class AppSession {
     required this.companyKey,
     required this.token,
     required this.expiresAt,
+    this.access = 'both',
   });
 
   bool get isExpired => expiresAt <= DateTime.now().millisecondsSinceEpoch;
   bool get hasCompany => companyUrl.isNotEmpty && companyKey.isNotEmpty;
+  bool get canUseMobile => access == 'mobile' || access == 'both';
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -38,6 +43,7 @@ class AppSession {
         'company_key': companyKey,
         'token': token,
         'expires_at': expiresAt,
+        'access': access,
       };
 
   factory AppSession.fromMap(Map<String, dynamic> m) => AppSession(
@@ -51,5 +57,6 @@ class AppSession {
         companyKey: m['company_key'] as String? ?? '',
         token: m['token'] as String,
         expiresAt: (m['expires_at'] as num).toInt(),
+        access: m['access'] as String? ?? 'both',
       );
 }

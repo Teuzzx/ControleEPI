@@ -63,6 +63,14 @@ class AuthRepo {
 
     final row = Map<String, dynamic>.from(rows.first as Map);
 
+    final access = row['user_access'] as String? ?? 'both';
+    if (access == 'web') {
+      throw const AuthException(
+        'Este login é exclusivo do sistema web (computador). '
+        'Use o navegador para acessar.',
+      );
+    }
+
     final session = AppSession(
       id: (row['user_id'] as num).toInt(),
       name: row['user_name'] as String? ?? '',
@@ -74,6 +82,7 @@ class AuthRepo {
       companyKey: row['company_key'] as String? ?? '',
       token: row['token'] as String,
       expiresAt: DateTime.now().millisecondsSinceEpoch + 12 * 60 * 60 * 1000,
+      access: access,
     );
 
     if (session.role == 'filial' && !session.hasCompany) {

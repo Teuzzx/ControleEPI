@@ -7,6 +7,8 @@ const clientOptions = {
   auth: { autoRefreshToken: false, persistSession: false },
 } as const
 
+export type AccessLevel = 'web' | 'mobile' | 'both'
+
 export interface SessionUser {
   id: number
   name: string
@@ -16,6 +18,8 @@ export interface SessionUser {
   companyName: string
   companyUrl: string
   companyKey: string
+  /** Acesso do login: web, mobile ou ambos. */
+  access: AccessLevel
   /** Token de sessão gerado no banco (tabela sessions). */
   token: string
   /** Timestamp de expiração da sessão. */
@@ -105,6 +109,11 @@ export async function login(email: string, password: string): Promise<SessionUse
 
   const row = data[0] as Record<string, unknown>
 
+  const access = String(row.user_access || 'both') as AccessLevel
+  if (access === 'mobile') {
+    throw new Error('Este login é exclusivo do aplicativo mobile. Use o celular para acessar.')
+  }
+
   return {
     id: Number(row.user_id),
     name: String(row.user_name),
@@ -114,6 +123,7 @@ export async function login(email: string, password: string): Promise<SessionUse
     companyName: String(row.company_name || 'Matriz Central'),
     companyUrl: String(row.company_url || ''),
     companyKey: String(row.company_key || ''),
+    access,
     token: String(row.token),
     expiresAt: Date.now() + SESSION_TTL_MS,
   }
@@ -166,25 +176,31 @@ export interface UserRow {
   name: string
   email: string
   role: 'matriz' | 'filial'
+  access: AccessLevel
   company_id: number | null
   company_name: string | null
   created_at: string
 }
 
-/** Lista usuários (matriz). Requer migration 0005 no banco. */
+/** Lista usuários (matriz: todos; filial: apenas a própria empresa). Requer migration 0009. */
 export async function fetchUsers(): Promise<UserRow[]> {
   const { data, error } = await getAuthClient().rpc('app_list_users')
   if (error) throw new Error(error.message)
   return (data ?? []) as UserRow[]
 }
 
-/** Matriz cria usuário com papel e empresa designada. Requer migration 0005. */
+/**
+ * Cria usuário com papel, empresa e acesso (web/mobile/ambos).
+ * A matriz pode criar para qualquer empresa; a filial cria apenas para a
+ * própria empresa (papel sempre 'filial'). Requer migration 0009.
+ */
 export async function createUser(params: {
   name: string
   email: string
   password: string
   role: 'matriz' | 'filial'
   companyId?: number | null
+  access?: AccessLevel
 }): Promise<void> {
   const { error } = await getAuthClient().rpc('app_create_user', {
     p_name: params.name.trim(),
@@ -192,6 +208,16 @@ export async function createUser(params: {
     p_password: params.password,
     p_role: params.role,
     p_company_id: params.companyId ?? null,
+    p_access: params.access ?? 'both',
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Matriz ou filial altera o acesso (web/mobile/ambos) de um usuário. Requer migration 0009. */
+export async function updateUserAccess(id: number, access: AccessLevel): Promise<void> {
+  const { error } = await getAuthClient().rpc('app_update_user_access', {
+    p_id: id,
+    p_access: access,
   })
   if (error) throw new Error(error.message)
 }

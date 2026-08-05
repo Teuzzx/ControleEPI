@@ -45,6 +45,7 @@ interface DbMovement {
   quantity: number; operator: string; notes: string; company_name: string; created_at: string
   color?: string; size?: string; cart_id?: string | null
   photo_url?: string | null; signature_url?: string | null
+  offline_created?: boolean | null
 }
 interface DbStockEntry {
   id: number; epi_name: string; manufacturer: string; supplier: string
@@ -210,6 +211,7 @@ export function useSupabaseData() {
       cartId: m.cart_id || undefined,
       photoUrl: m.photo_url || undefined,
       signatureUrl: m.signature_url || undefined,
+      offlineCreated: m.offline_created === true,
     }))
 
     const mappedEntries: StockEntry[] = dbEntries.map((e) => ({

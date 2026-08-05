@@ -1,5 +1,5 @@
 {
-  "version": "1.0.11",
-  "notes": "Nova opção 'Esqueci minha senha' no login: recupera a senha por e-mail com código de 6 dígitos (validade de 15 min).",
+  "version": "1.0.12",
+  "notes": "Modo offline melhorado: entradas e saídas feitas sem internet ficam com a data/hora real e são enviadas automaticamente quando o sinal volta, com aviso na tela. Agora cada login escolhe onde entra (Web, Mobile ou Ambos).",
   "apkUrl": "/Controle-EPI.apk"
 }

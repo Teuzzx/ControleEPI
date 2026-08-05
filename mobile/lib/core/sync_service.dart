@@ -22,6 +22,10 @@ class SyncService {
   final ValueNotifier<int> pendingNotifier = ValueNotifier(0);
   final ValueNotifier<int> failedNotifier = ValueNotifier(0);
 
+  /// Aviso de sincronização concluída (ex.: "Subimos as entradas e saídas
+  /// do período offline") — a tela principal escuta e mostra ao usuário.
+  final ValueNotifier<String?> syncNoticeNotifier = ValueNotifier(null);
+
   Future<void> init(WidgetRef ref) async {
     _box = Hive.box(HiveService.pendingOpsBox);
     _failedBox = Hive.box(HiveService.failedOpsBox);
@@ -47,7 +51,9 @@ class SyncService {
     await _box!.add({
       'id': cartId,
       'type': type,
-      'created_at': DateTime.now().toIso8601String(),
+      // Data/hora em que a operação foi lançada no celular — preservada na
+      // sincronização para o registro chegar com o horário correto.
+      'created_at': DateTime.now().toUtc().toIso8601String(),
       'payload': {
         'company_url': session.companyUrl,
         'company_key': session.companyKey,
@@ -73,6 +79,8 @@ class SyncService {
     if (connectivity.every((c) => c == ConnectivityResult.none)) return;
 
     _running = true;
+    var synced = 0;
+    var failed = 0;
     try {
       final keys = _box!.keys.toList();
       for (final key in keys) {
@@ -83,10 +91,13 @@ class SyncService {
         }
         final op = Map<String, dynamic>.from(raw);
         final payload = Map<String, dynamic>.from(op['payload'] as Map);
+        final createdAt = DateTime.tryParse(op['created_at'] as String? ?? '');
         try {
-          await _execute(payload, op['type'] as String? ?? 'saida');
+          await _execute(payload, op['type'] as String? ?? 'saida', createdAt);
           await _box!.delete(key);
+          synced++;
         } catch (_) {
+          failed++;
           await _box!.delete(key);
           await _failedBox!.add(op);
           break; // para e deixa o resto para a próxima tentativa
@@ -95,10 +106,26 @@ class SyncService {
     } finally {
       _running = false;
       _refreshCounts();
+      _notifySync(synced, failed);
     }
   }
 
-  Future<void> _execute(Map<String, dynamic> payload, String type) async {
+  void _notifySync(int synced, int failed) {
+    if (synced > 0 && failed == 0) {
+      syncNoticeNotifier.value = synced == 1
+          ? 'Subimos 1 movimentação feita durante o período offline.'
+          : 'Subimos $synced movimentações feitas durante o período offline.';
+    } else if (synced > 0) {
+      syncNoticeNotifier.value =
+          'Subimos $synced movimentação${synced > 1 ? 'ões' : ''} do período offline, '
+          'mas $failed ficou(ram) pendente(s). Verifique o estoque e tente de novo.';
+    } else if (failed > 0) {
+      syncNoticeNotifier.value =
+          '$failed operação(ões) não puderam ser sincronizadas. Verifique o estoque.';
+    }
+  }
+
+  Future<void> _execute(Map<String, dynamic> payload, String type, DateTime? createdAt) async {
     final client = SupabaseClient(
       payload['company_url'] as String,
       payload['company_key'] as String,
@@ -144,6 +171,8 @@ class SyncService {
         items: common['items'] as List<CartItem>,
         photoPath: common['photoPath'] as String?,
         signaturePath: common['signaturePath'] as String?,
+        createdAt: createdAt,
+        offlineCreated: true,
       );
     } else {
       await DataRepo.processSaida(
@@ -154,6 +183,8 @@ class SyncService {
         items: common['items'] as List<CartItem>,
         photoPath: common['photoPath'] as String?,
         signaturePath: common['signaturePath'] as String?,
+        createdAt: createdAt,
+        offlineCreated: true,
       );
     }
   }

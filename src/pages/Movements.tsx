@@ -168,6 +168,16 @@ export default function Movements() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {g.list.some((m) => m.offlineCreated) && (
+                        <span title="Registrada no app mobile durante o período offline" style={{
+                          fontSize: 10.5, padding: '3px 8px', borderRadius: 6,
+                          background: 'rgba(245,158,11,0.1)', color: '#FCD34D',
+                          border: '1px solid rgba(245,158,11,0.25)', fontFamily: 'var(--font-sans)',
+                          fontWeight: 700, whiteSpace: 'nowrap',
+                        }}>
+                          📴 Offline
+                        </span>
+                      )}
                       <span style={{
                         fontSize: 11, padding: '3px 8px', borderRadius: 6,
                         background: 'rgba(99,102,241,0.08)', color: '#818CF8',
@@ -309,6 +319,17 @@ export default function Movements() {
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: '#E8EAF6' }}>{m.quantity}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: '#5C6388' }}>{m.date}</td>
                     <td>
+                      {m.offlineCreated && (
+                        <span title="Registrada no app mobile durante o período offline" style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 10, padding: '2px 7px', borderRadius: 6, marginBottom: 4,
+                          background: 'rgba(245,158,11,0.1)', color: '#FCD34D',
+                          border: '1px solid rgba(245,158,11,0.25)', fontWeight: 700,
+                          fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
+                        }}>
+                          📴 Offline
+                        </span>
+                      )}
                       <span style={{
                         fontSize: 11, padding: '3px 8px', borderRadius: 6,
                         background: m.operator === 'App Mobile' ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.04)',

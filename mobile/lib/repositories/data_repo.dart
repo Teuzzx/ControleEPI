@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/cart_item.dart';
@@ -72,6 +74,25 @@ class DataRepo {
 
   // ── Saída de EPI ───────────────────────────────────────────────────────
 
+  /// Upload seguro: só sobe se o arquivo ainda existir no aparelho (a foto
+  /// pode ter sido capturada há horas, durante o período offline).
+  static Future<String?> _uploadIfExists({
+    required SupabaseClient client,
+    required String folder,
+    required String fileName,
+    required String? filePath,
+  }) async {
+    if (filePath == null) return null;
+    final f = File(filePath);
+    if (!f.existsSync()) return null;
+    try {
+      return await StorageRepo.upload(
+          client: client, folder: folder, fileName: fileName, filePath: filePath);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<int> processSaida({
     required SupabaseClient client,
     required AppSession session,
@@ -80,16 +101,16 @@ class DataRepo {
     required List<CartItem> items,
     String? photoPath,
     String? signaturePath,
+    DateTime? createdAt,
+    bool offlineCreated = false,
   }) async {
     if (items.isEmpty) throw Exception('Nenhum item na saída.');
 
     // 1) Fotos/assinaturas primeiro
-    final photoUrl = photoPath != null
-        ? await StorageRepo.upload(client: client, folder: 'saidas/$cartId', fileName: 'foto.jpg', filePath: photoPath)
-        : null;
-    final signatureUrl = signaturePath != null
-        ? await StorageRepo.upload(client: client, folder: 'saidas/$cartId', fileName: 'assinatura.png', filePath: signaturePath)
-        : null;
+    final photoUrl = await _uploadIfExists(
+        client: client, folder: 'saidas/$cartId', fileName: 'foto.jpg', filePath: photoPath);
+    final signatureUrl = await _uploadIfExists(
+        client: client, folder: 'saidas/$cartId', fileName: 'assinatura.png', filePath: signaturePath);
 
     // 2) Valida estoque antes de escrever
     final epiIds = items.map((i) => i.epiId).toSet().toList();
@@ -169,6 +190,8 @@ class DataRepo {
           'cart_id': cartId,
           'photo_url': photoUrl,
           'signature_url': signatureUrl,
+          'created_at': createdAt?.toUtc().toIso8601String(),
+          'offline_created': offlineCreated,
         });
       }
       undos.add(() async {
@@ -192,15 +215,15 @@ class DataRepo {
     required List<CartItem> items,
     String? photoPath,
     String? signaturePath,
+    DateTime? createdAt,
+    bool offlineCreated = false,
   }) async {
     if (items.isEmpty) throw Exception('Nenhum item na devolução.');
 
-    final photoUrl = photoPath != null
-        ? await StorageRepo.upload(client: client, folder: 'devolucoes/$cartId', fileName: 'foto.jpg', filePath: photoPath)
-        : null;
-    final signatureUrl = signaturePath != null
-        ? await StorageRepo.upload(client: client, folder: 'devolucoes/$cartId', fileName: 'assinatura.png', filePath: signaturePath)
-        : null;
+    final photoUrl = await _uploadIfExists(
+        client: client, folder: 'devolucoes/$cartId', fileName: 'foto.jpg', filePath: photoPath);
+    final signatureUrl = await _uploadIfExists(
+        client: client, folder: 'devolucoes/$cartId', fileName: 'assinatura.png', filePath: signaturePath);
 
     final epiIds = items.map((i) => i.epiId).toSet().toList();
     final varsRes = await client
@@ -299,6 +322,8 @@ class DataRepo {
           'cart_id': cartId,
           'photo_url': photoUrl,
           'signature_url': signatureUrl,
+          'created_at': createdAt?.toUtc().toIso8601String(),
+          'offline_created': offlineCreated,
         });
       }
       undos.add(() async {

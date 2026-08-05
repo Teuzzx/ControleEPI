@@ -84,6 +84,8 @@ export interface Movement {
   cartId?: string
   photoUrl?: string
   signatureUrl?: string
+  /** Movimentação registrada no app mobile durante o período offline. */
+  offlineCreated?: boolean
 }
 
 export interface StockEntry {

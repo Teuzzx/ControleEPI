@@ -30,9 +30,46 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
     // Inicia o serviço de sincronização offline (escuta a conexão).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(syncServiceProvider).init(ref);
+      final sync = ref.read(syncServiceProvider);
+      sync.init(ref);
+      sync.syncNoticeNotifier.addListener(_onSyncNotice);
       _checkForUpdate();
     });
+  }
+
+  /// Mostra o aviso quando a internet volta e a fila offline é enviada
+  /// (ex.: "Subimos as entradas e saídas do período offline").
+  void _onSyncNotice() {
+    if (!mounted) return;
+    final sync = ref.read(syncServiceProvider);
+    final notice = sync.syncNoticeNotifier.value;
+    if (notice == null) return;
+    sync.syncNoticeNotifier.value = null;
+
+    // Recarrega estoque e movimentações com os dados recém-sincronizados.
+    ref.invalidate(stockProvider);
+    ref.invalidate(recentMovementsProvider);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kGreen,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        content: Row(
+          children: [
+            const Icon(Icons.cloud_done, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                notice,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _showNotifications() async {

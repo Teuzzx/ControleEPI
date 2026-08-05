@@ -1,9 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, X, UserCog, Shield, Building2, Trash2, KeyRound, AlertCircle, CheckCircle2, Users, Mail, Lock } from 'lucide-react'
-import { fetchUsers, fetchCompanies, createUser, deleteUser, resetUserPassword, type UserRow, type Company } from '../lib/auth'
+import { Plus, X, UserCog, Shield, Building2, Trash2, KeyRound, AlertCircle, CheckCircle2, Users, Mail, Lock, Monitor, Smartphone, Laptop } from 'lucide-react'
+import { fetchUsers, fetchCompanies, createUser, deleteUser, resetUserPassword, updateUserAccess, type UserRow, type Company, type AccessLevel } from '../lib/auth'
 import Modal from '../components/ui/Modal'
 
+const ACCESS_LABEL: Record<AccessLevel, string> = {
+  web: 'Web',
+  mobile: 'Mobile',
+  both: 'Web + Mobile',
+}
+
+const ACCESS_ICON: Record<AccessLevel, JSX.Element> = {
+  web: <Monitor size={13} />,
+  mobile: <Smartphone size={13} />,
+  both: <Laptop size={13} />,
+}
+
 export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }) {
+  const isFilial = userRole === 'filial'
   const [users, setUsers] = useState<UserRow[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,6 +32,7 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
     password: '',
     role: 'filial' as 'matriz' | 'filial',
     companyId: '' as string,
+    access: 'both' as AccessLevel,
   })
 
   const load = useCallback(async () => {
@@ -26,9 +40,11 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
     setMigrationNeeded(false)
     setErrorMsg('')
     try {
-      const [u, c] = await Promise.all([fetchUsers(), fetchCompanies()])
+      const u = await fetchUsers()
       setUsers(u)
-      setCompanies(c)
+      if (!isFilial) {
+        setCompanies(await fetchCompanies())
+      }
     } catch (err) {
       const msg = (err as Error).message
       if (msg.includes('app_list_users') || msg.includes('does not exist') || msg.includes('PGRST')) {
@@ -39,7 +55,7 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isFilial])
 
   useEffect(() => {
     load()
@@ -63,16 +79,30 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
         email: form.email,
         password: form.password,
         role: form.role,
-        companyId: form.role === 'filial' ? Number(form.companyId) : null,
+        companyId: form.role === 'filial' ? (isFilial ? null : Number(form.companyId)) : null,
+        access: form.access,
       })
       setSuccess(`Usuário "${form.name}" criado com sucesso!`)
-      setForm({ name: '', email: '', password: '', role: 'filial', companyId: '' })
+      setForm({ name: '', email: '', password: '', role: 'filial', companyId: '', access: 'both' })
       setShowAdd(false)
       await load()
     } catch (err) {
       setErrorMsg((err as Error).message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleChangeAccess = async (u: UserRow, access: AccessLevel) => {
+    if (u.access === access) return
+    setErrorMsg('')
+    setSuccess('')
+    try {
+      await updateUserAccess(u.id, access)
+      setSuccess(`Acesso de "${u.name}" alterado para ${ACCESS_LABEL[access]}.`)
+      await load()
+    } catch (err) {
+      setErrorMsg((err as Error).message)
     }
   }
 
@@ -102,26 +132,15 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
     }
   }
 
-  if (userRole === 'filial') {
-    return (
-      <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
-        <div style={{ background: 'rgba(13,15,24,0.9)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '40px', textAlign: 'center', maxWidth: 560, margin: '0 auto' }}>
-          <Shield size={32} color="#5C6388" style={{ marginBottom: 12 }} />
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: '0 0 8px' }}>Configurações restritas</h2>
-          <p style={{ fontSize: 13, color: '#5C6388', lineHeight: 1.6, margin: 0 }}>
-            A gestão de usuários e da rede de empresas é feita pela matriz.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>Configurações</h2>
-          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>Usuários de acesso do sistema • {users.length} cadastrados</p>
+          <p style={{ fontSize: 13, color: '#3D4257', margin: 0 }}>
+            Usuários de acesso do sistema • {users.length} cadastrados
+            {isFilial && ' • sua empresa pode criar e gerenciar os próprios logins'}
+          </p>
         </div>
         <button onClick={() => setShowAdd(true)} style={{
           display: 'flex', alignItems: 'center', gap: 8,
@@ -174,7 +193,7 @@ export default function Settings({ userRole }: { userRole: 'matriz' | 'filial' }
           <p style={{ fontSize: 12.5, color: '#9BA3C4', lineHeight: 1.6, margin: '0 0 10px' }}>
             A gestão de usuários precisa de funções novas no banco. Abra o SQL Editor do Supabase da
             <strong style={{ color: '#E8EAF6' }}> matriz</strong>, execute o conteúdo de
-            <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 12 }}> supabase/migrations/0005_users_management.sql</code>
+            <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 12 }}> supabase/migrations/0009_users_access.sql</code>
             e recarregue esta página.
           </p>
           <pre style={{
@@ -237,7 +256,7 @@ grant execute on function public.app_reset_user_password(bigint, text) to anon, 
           <UserCog size={15} color="#818CF8" />
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 700, color: '#E8EAF6', margin: 0 }}>Usuários do Sistema</h3>
           <span style={{ fontSize: 11, color: '#3D4257' }}>
-            Cada login vê apenas os dados da empresa designada
+            Cada login vê apenas os dados da empresa designada • acesso: web, mobile ou ambos
           </span>
         </div>
         <table className="data-table">
@@ -247,15 +266,16 @@ grant execute on function public.app_reset_user_password(bigint, text) to anon, 
               <th>E-mail</th>
               <th>Papel</th>
               <th>Empresa</th>
+              <th>Acesso</th>
               <th>Criado em</th>
               <th style={{ textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: '#3D4257' }}>Carregando usuários...</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#3D4257' }}>Carregando usuários...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: '#3D4257' }}>Nenhum usuário cadastrado ainda.</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#3D4257' }}>Nenhum usuário cadastrado ainda.</td></tr>
             ) : users.map((u) => (
               <tr key={u.id}>
                 <td style={{ fontWeight: 600, color: '#C4C9E2' }}>{u.name}</td>
@@ -266,11 +286,28 @@ grant execute on function public.app_reset_user_password(bigint, text) to anon, 
                   </span>
                 </td>
                 <td style={{ color: '#9BA3C4' }}>
-                  {u.role === 'matriz' ? 'Matriz Central' : (
+                  {u.role === 'matriz' && !isFilial ? 'Matriz Central' : (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Building2 size={12} color="#67E8F9" /> {u.company_name ?? 'Sem empresa vinculada'}
                     </span>
                   )}
+                </td>
+                <td>
+                  <select
+                    title="Acesso do login"
+                    value={u.access ?? 'both'}
+                    onChange={(e) => handleChangeAccess(u, e.target.value as AccessLevel)}
+                    style={{
+                      background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+                      color: '#A5B4FC', borderRadius: 8, padding: '6px 8px', fontSize: 12,
+                      fontFamily: 'var(--font-sans)', fontWeight: 600, cursor: 'pointer',
+                      outline: 'none', minWidth: 118,
+                    }}
+                  >
+                    <option value="web">Web</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="both">Web + Mobile</option>
+                  </select>
                 </td>
                 <td style={{ color: '#5C6388', fontSize: 12 }}>
                   {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—'}
@@ -343,56 +380,119 @@ grant execute on function public.app_reset_user_password(bigint, text) to anon, 
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Papel do usuário</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    onClick={() => setForm({ ...form, role: 'matriz' })}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px', borderRadius: 10,
-                      border: `1px solid ${form.role === 'matriz' ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.08)'}`,
-                      background: form.role === 'matriz' ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.025)',
-                      cursor: 'pointer', color: form.role === 'matriz' ? '#FCD34D' : '#5C6388',
-                      fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, width: '100%', transition: 'all 0.15s',
-                    }}
-                  >
-                    <Shield size={14} /> Matriz (total)
-                  </button>
-                  <button
-                    onClick={() => setForm({ ...form, role: 'filial' })}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px', borderRadius: 10,
-                      border: `1px solid ${form.role === 'filial' ? 'rgba(34,211,238,0.5)' : 'rgba(255,255,255,0.08)'}`,
-                      background: form.role === 'filial' ? 'rgba(34,211,238,0.08)' : 'rgba(255,255,255,0.025)',
-                      cursor: 'pointer', color: form.role === 'filial' ? '#67E8F9' : '#5C6388',
-                      fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, width: '100%', transition: 'all 0.15s',
-                    }}
-                  >
-                    <Building2 size={14} /> Filial (empresa)
-                  </button>
-                </div>
-              </div>
-
-              {form.role === 'filial' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Empresa designada</label>
-                  <select
-                    className="input-field"
-                    style={{ appearance: 'none' }}
-                    value={form.companyId}
-                    onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-                  >
-                    <option value="">Selecione a empresa...</option>
-                    {companies.filter((c) => !c.is_matriz).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <div style={{ marginTop: 8, fontSize: 11.5, color: '#3D4257', lineHeight: 1.5 }}>
-                    <AlertCircle size={11} style={{ verticalAlign: '-2px', marginRight: 4 }} color="#FCD34D" />
-                    Este login verá apenas o estoque, colaboradores e movimentações da empresa selecionada.
+              {!isFilial && (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Papel do usuário</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <button
+                        onClick={() => setForm({ ...form, role: 'matriz' })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px', borderRadius: 10,
+                          border: `1px solid ${form.role === 'matriz' ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                          background: form.role === 'matriz' ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.025)',
+                          cursor: 'pointer', color: form.role === 'matriz' ? '#FCD34D' : '#5C6388',
+                          fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, width: '100%', transition: 'all 0.15s',
+                        }}
+                      >
+                        <Shield size={14} /> Matriz (total)
+                      </button>
+                      <button
+                        onClick={() => setForm({ ...form, role: 'filial' })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px', borderRadius: 10,
+                          border: `1px solid ${form.role === 'filial' ? 'rgba(34,211,238,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                          background: form.role === 'filial' ? 'rgba(34,211,238,0.08)' : 'rgba(255,255,255,0.025)',
+                          cursor: 'pointer', color: form.role === 'filial' ? '#67E8F9' : '#5C6388',
+                          fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, width: '100%', transition: 'all 0.15s',
+                        }}
+                      >
+                        <Building2 size={14} /> Filial (empresa)
+                      </button>
+                    </div>
                   </div>
+
+                  {form.role === 'filial' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Empresa designada</label>
+                      <select
+                        className="input-field"
+                        style={{ appearance: 'none' }}
+                        value={form.companyId}
+                        onChange={(e) => setForm({ ...form, companyId: e.target.value })}
+                      >
+                        <option value="">Selecione a empresa...</option>
+                        {companies.filter((c) => !c.is_matriz).map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <div style={{ marginTop: 8, fontSize: 11.5, color: '#3D4257', lineHeight: 1.5 }}>
+                        <AlertCircle size={11} style={{ verticalAlign: '-2px', marginRight: 4 }} color="#FCD34D" />
+                        Este login verá apenas o estoque, colaboradores e movimentações da empresa selecionada.
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {isFilial && (
+                <div style={{
+                  background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.15)',
+                  borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: '#67E8F9', lineHeight: 1.5,
+                }}>
+                  <Building2 size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
+                  Este login será criado para a sua empresa e enxergará apenas os dados dela.
                 </div>
               )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#5C6388', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Onde o usuário poderá entrar?</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <button
+                    onClick={() => setForm({ ...form, access: 'web' })}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7, padding: '11px 10px', borderRadius: 10,
+                      border: `1px solid ${form.access === 'web' ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                      background: form.access === 'web' ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.025)',
+                      cursor: 'pointer', color: form.access === 'web' ? '#A5B4FC' : '#5C6388',
+                      fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, width: '100%', transition: 'all 0.15s',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Monitor size={14} /> Web
+                  </button>
+                  <button
+                    onClick={() => setForm({ ...form, access: 'mobile' })}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7, padding: '11px 10px', borderRadius: 10,
+                      border: `1px solid ${form.access === 'mobile' ? 'rgba(34,211,238,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                      background: form.access === 'mobile' ? 'rgba(34,211,238,0.1)' : 'rgba(255,255,255,0.025)',
+                      cursor: 'pointer', color: form.access === 'mobile' ? '#67E8F9' : '#5C6388',
+                      fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, width: '100%', transition: 'all 0.15s',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Smartphone size={14} /> Mobile
+                  </button>
+                  <button
+                    onClick={() => setForm({ ...form, access: 'both' })}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7, padding: '11px 10px', borderRadius: 10,
+                      border: `1px solid ${form.access === 'both' ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                      background: form.access === 'both' ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.025)',
+                      cursor: 'pointer', color: form.access === 'both' ? '#4ADE80' : '#5C6388',
+                      fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, width: '100%', transition: 'all 0.15s',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Laptop size={14} /> Ambos
+                  </button>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 11.5, color: '#3D4257', lineHeight: 1.5 }}>
+                  <AlertCircle size={11} style={{ verticalAlign: '-2px', marginRight: 4 }} color="#FCD34D" />
+                  Web = computador, Mobile = aplicativo do celular. O login só entra onde tiver acesso.
+                </div>
+              </div>
             </div>
 
             {errorMsg && (
