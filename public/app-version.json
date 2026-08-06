@@ -1,5 +1,5 @@
 {
-  "version": "1.0.12",
-  "notes": "Modo offline melhorado: entradas e saídas feitas sem internet ficam com a data/hora real e são enviadas automaticamente quando o sinal volta, com aviso na tela. Agora cada login escolhe onde entra (Web, Mobile ou Ambos).",
+  "version": "1.0.13",
+  "notes": "Correção do modo offline: entradas e saídas feitas sem internet agora sincronizam corretamente mesmo quando a filial não tem banco próprio (usam o banco da matriz), com retry automático das operações com erro e mensagem clara do motivo.",
   "apkUrl": "/Controle-EPI.apk"
 }
