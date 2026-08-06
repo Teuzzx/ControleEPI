@@ -365,9 +365,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
             ],
           ),
-          ValueListenableBuilder<int>(
-            valueListenable: sync.pendingNotifier,
-            builder: (_, pending, __) {
+          ListenableBuilder(
+            listenable: Listenable.merge([sync.pendingNotifier, sync.failedNotifier]),
+            builder: (_, __) {
+              final pending = sync.pendingNotifier.value;
+              final failed = sync.failedNotifier.value;
               if (pending > 0) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -377,6 +379,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                       icon: Icons.cloud_upload_outlined,
                     ),
                   );
+              }
+              if (failed > 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: StatusChip(
+                    label: '$failed com erro',
+                    color: kRed,
+                    icon: Icons.error_outline,
+                  ),
+                );
               }
               return Padding(
                 padding: const EdgeInsets.only(right: 12),

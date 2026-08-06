@@ -9,6 +9,7 @@ import '../models/employee.dart';
 import '../models/session.dart';
 import '../providers.dart';
 import '../repositories/data_repo.dart';
+import 'config.dart';
 import 'hive_service.dart';
 
 /// Fila offline: operações feitas sem internet ficam no Hive e são
@@ -80,8 +81,30 @@ class SyncService {
 
     _running = true;
     var synced = 0;
-    var failed = 0;
+    final errors = <String>{};
     try {
+      // 1) Tenta de novo as que falharam antes (podem ter falhado por rede).
+      final failedKeys = _failedBox!.keys.toList();
+      for (final key in failedKeys) {
+        final raw = _failedBox!.get(key);
+        if (raw is! Map) {
+          await _failedBox!.delete(key);
+          continue;
+        }
+        final op = Map<String, dynamic>.from(raw);
+        try {
+          await _execute(op, session);
+          await _failedBox!.delete(key);
+          synced++;
+        } catch (e) {
+          op['error'] = e.toString();
+          await _failedBox!.put(key, op);
+          errors.add(_friendlyError(e));
+        }
+      }
+
+      // 2) Processa a fila pendente (sem parar na primeira falha — cada
+      //    operação é independente e pode ser enviada mesmo se outra falhar).
       final keys = _box!.keys.toList();
       for (final key in keys) {
         final raw = _box!.get(key);
@@ -90,61 +113,120 @@ class SyncService {
           continue;
         }
         final op = Map<String, dynamic>.from(raw);
-        final payload = Map<String, dynamic>.from(op['payload'] as Map);
-        final createdAt = DateTime.tryParse(op['created_at'] as String? ?? '');
         try {
-          await _execute(payload, op['type'] as String? ?? 'saida', createdAt);
+          await _execute(op, session);
           await _box!.delete(key);
           synced++;
-        } catch (_) {
-          failed++;
+        } catch (e) {
+          op['error'] = e.toString();
           await _box!.delete(key);
           await _failedBox!.add(op);
-          break; // para e deixa o resto para a próxima tentativa
+          errors.add(_friendlyError(e));
         }
       }
     } finally {
       _running = false;
       _refreshCounts();
-      _notifySync(synced, failed);
+      _notifySync(synced, errors);
     }
   }
 
-  void _notifySync(int synced, int failed) {
-    if (synced > 0 && failed == 0) {
+  /// Traduz o erro técnico para algo que o almoxarife entenda.
+  String _friendlyError(Object e) {
+    final msg = e.toString();
+    if (msg.contains('SocketException') ||
+        msg.contains('ClientException') ||
+        msg.contains('Connection') ||
+        msg.contains('TimeoutException') ||
+        msg.contains('status code 000') ||
+        msg.contains('Failed to connect')) {
+      return 'Sem conexão com o servidor. Vamos tentar de novo automaticamente.';
+    }
+    if (msg.contains('session') && msg.contains('token')) {
+      return 'Sessão expirada. Saia e entre no app novamente.';
+    }
+    if (msg.contains('Estoque insuficiente') ||
+        msg.contains('não encontrada') ||
+        msg.contains('insuficiente')) {
+      return 'O estoque mudou no computador. Confira a quantidade e refaça a operação.';
+    }
+    return msg.replaceAll('Exception: ', '').trim();
+  }
+
+  void _notifySync(int synced, Set<String> errors) {
+    if (synced > 0 && errors.isEmpty) {
       syncNoticeNotifier.value = synced == 1
           ? 'Subimos 1 movimentação feita durante o período offline.'
           : 'Subimos $synced movimentações feitas durante o período offline.';
     } else if (synced > 0) {
       syncNoticeNotifier.value =
           'Subimos $synced movimentação${synced > 1 ? 'ões' : ''} do período offline, '
-          'mas $failed ficou(ram) pendente(s). Verifique o estoque e tente de novo.';
-    } else if (failed > 0) {
+          'mas ${errors.length} ficou(ram) pendente(s). ${errors.first}';
+    } else if (errors.isNotEmpty) {
       syncNoticeNotifier.value =
-          '$failed operação(ões) não puderam ser sincronizadas. Verifique o estoque.';
+          '${errors.length} operação(ões) não puderam ser sincronizadas. ${errors.first}';
     }
   }
 
-  Future<void> _execute(Map<String, dynamic> payload, String type, DateTime? createdAt) async {
+  /// Resolve o banco de destino da sincronização.
+  ///
+  /// A filial pode não ter um projeto Supabase próprio: nesse caso o banco é
+  /// o da MATRIZ (igual ao `dataClientProvider` usado nas operações online).
+  /// Usa a URL/chave gravadas na fila; se vazias, cai para a sessão atual e,
+  /// por fim, para a matriz.
+  static ({String url, String key, String token}) resolveTarget(
+    Map<String, dynamic> payload,
+    AppSession currentSession,
+  ) {
+    final payloadUrl = payload['company_url'] as String? ?? '';
+    final payloadKey = payload['company_key'] as String? ?? '';
+
+    final url = payloadUrl.isNotEmpty
+        ? payloadUrl
+        : (currentSession.companyUrl.isNotEmpty
+            ? currentSession.companyUrl
+            : Config.supabaseMatrizUrl);
+    final key = payloadKey.isNotEmpty
+        ? payloadKey
+        : (currentSession.companyKey.isNotEmpty
+            ? currentSession.companyKey
+            : Config.supabaseMatrizAnonKey);
+
+    // Token atual da sessão (o gravado na fila pode ter expirado — 12h).
+    final token = currentSession.token.isNotEmpty
+        ? currentSession.token
+        : (payload['token'] as String? ?? '');
+
+    return (url: url, key: key, token: token);
+  }
+
+  Future<void> _execute(Map<String, dynamic> op, AppSession currentSession) async {
+    final payload = Map<String, dynamic>.from(op['payload'] as Map);
+    final type = op['type'] as String? ?? 'saida';
+    final createdAt = DateTime.tryParse(op['created_at'] as String? ?? '');
+
+    final target = resolveTarget(payload, currentSession);
+
     final client = SupabaseClient(
-      payload['company_url'] as String,
-      payload['company_key'] as String,
+      target.url,
+      target.key,
       headers: {
-        'x-session-token': payload['token'] as String,
+        'x-session-token': target.token,
       },
     );
 
     final session = AppSession(
-      id: 0,
-      name: '',
-      email: '',
-      role: 'filial',
-      companyId: null,
-      companyName: '',
-      companyUrl: payload['company_url'] as String,
-      companyKey: payload['company_key'] as String,
-      token: payload['token'] as String,
-      expiresAt: DateTime.now().millisecondsSinceEpoch + 12 * 60 * 60 * 1000,
+      id: currentSession.id,
+      name: currentSession.name,
+      email: currentSession.email,
+      role: currentSession.role,
+      companyId: currentSession.companyId,
+      companyName: currentSession.companyName,
+      companyUrl: target.url,
+      companyKey: target.key,
+      token: target.token,
+      expiresAt: currentSession.expiresAt,
+      access: currentSession.access,
     );
 
     final employee = Employee.fromMap(Map<String, dynamic>.from(payload['employee'] as Map));
