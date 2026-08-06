@@ -1,8 +1,25 @@
-import { useState } from 'react'
-import { Search, Plus, Edit2, Trash2, Eye, X, ChevronDown } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Search, Plus, Edit2, Trash2, Eye, X, ChevronDown, Truck, ArrowLeftRight, Package } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
 import Modal from '../components/ui/Modal'
-import type { Employee } from '../data/mock'
+import type { Employee, Movement } from '../data/mock'
+
+const TYPE_BADGE: Record<string, string> = {
+  'Entrega': 'badge-success',
+  'Devolução': 'badge-warning',
+  'Troca': 'badge-info',
+  'Entrada': 'badge-neutral',
+  'Baixa': 'badge-danger',
+  'Distribuição': 'badge-info',
+}
+
+function MovementTypeBadge({ type }: { type: string }) {
+  return (
+    <span className={`badge ${TYPE_BADGE[type] ?? 'badge-neutral'}`} style={{ whiteSpace: 'nowrap' }}>
+      {type}
+    </span>
+  )
+}
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const initials = name.split(' ').slice(0, 2).map((n) => n[0]).join('')
@@ -24,7 +41,7 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 type Mode = 'list' | 'view' | 'add' | 'edit'
 
 export default function Employees() {
-  const { employees, departments, loading, addEmployee, updateEmployee, deleteEmployee } = useSupabaseData()
+  const { employees, departments, movements, loading, addEmployee, updateEmployee, deleteEmployee } = useSupabaseData()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'Ativo' | 'Inativo'>('all')
   const [teamFilter, setTeamFilter] = useState('all')
@@ -44,6 +61,17 @@ export default function Employees() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const selectedHistory = useMemo<Movement[]>(
+    () => (selected ? movements.filter((m) => m.employee === selected.name) : []),
+    [selected, movements],
+  )
+
+  const historyStats = useMemo(() => ({
+    entregas: selectedHistory.filter((m) => m.type === 'Entrega').length,
+    devolucoes: selectedHistory.filter((m) => m.type === 'Devolução').length,
+    itens: selectedHistory.reduce((s, m) => s + m.quantity, 0),
+  }), [selectedHistory])
 
   const openView = (emp: Employee) => { setSelected(emp); setMode('view') }
   const openEdit = (emp: Employee) => {
@@ -180,7 +208,12 @@ export default function Employees() {
                   </td>
                 </tr>
               ) : paged.map((emp) => (
-                <tr key={emp.id}>
+                <tr
+                  key={emp.id}
+                  onClick={() => openView(emp)}
+                  style={{ cursor: 'pointer' }}
+                  title="Clique para ver o histórico do colaborador"
+                >
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Avatar name={emp.name} />
@@ -212,13 +245,17 @@ export default function Employees() {
                         { icon: <Edit2 size={13} />, action: () => openEdit(emp), color: '#22D3EE', title: 'Editar' },
                         { icon: <Trash2 size={13} />, action: () => deleteEmployeeAction(emp), color: '#F43F5E', title: 'Excluir' },
                       ].map(({ icon, action, color, title }) => (
-                        <button key={title} onClick={action} title={title} style={{
-                          width: 28, height: 28, borderRadius: 7,
-                          background: `${color}12`, border: `1px solid ${color}25`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', color,
-                          transition: 'background 0.15s, transform 0.1s',
-                        }}
+                        <button
+                          key={title}
+                          onClick={(e) => { e.stopPropagation(); action() }}
+                          title={title}
+                          style={{
+                            width: 28, height: 28, borderRadius: 7,
+                            background: `${color}12`, border: `1px solid ${color}25`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', color,
+                            transition: 'background 0.15s, transform 0.1s',
+                          }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = `${color}22`; e.currentTarget.style.transform = 'scale(1.1)' }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = `${color}12`; e.currentTarget.style.transform = '' }}
                         >
@@ -258,11 +295,11 @@ export default function Employees() {
         </div>
       </div>
 
-      {/* Detail Modal */}
-      {(mode === 'view' || mode === 'edit') && selected && (
+      {/* Detail / History Modal */}
+      {mode === 'view' && selected && (
         <Modal onClose={closeModal}>
-          <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 560, borderRadius: 20, padding: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div className="modal-content glass-strong" style={{ width: '100%', maxWidth: 720, borderRadius: 20, padding: '28px', maxHeight: '92vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <Avatar name={selected.name} size={44} />
                 <div>
@@ -280,7 +317,8 @@ export default function Employees() {
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {/* Info grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
                 { label: 'Matrícula', value: selected.registration },
                 { label: 'CPF', value: selected.cpf },
@@ -291,22 +329,88 @@ export default function Employees() {
                 { label: 'Empresa', value: selected.company },
                 { label: 'Admissão', value: new Date(selected.admissionDate).toLocaleDateString('pt-BR') },
               ].map(({ label, value }) => (
-                <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 10.5, color: '#3D4257', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 13.5, color: '#C4C9E2', fontWeight: 500 }}>{value}</div>
+                <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 13px' }}>
+                  <div style={{ fontSize: 10, color: '#3D4257', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontSize: 13, color: '#C4C9E2', fontWeight: 500 }}>{value}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 10.5, color: '#3D4257', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
+            <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 10, color: '#3D4257', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
               <span className={`badge ${selected.status === 'Ativo' ? 'badge-success' : 'badge-neutral'}`}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
                 {selected.status}
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+            {/* History stats */}
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: '#E8EAF6', margin: 0, letterSpacing: '-0.01em' }}>
+                  Histórico de Movimentações
+                </h4>
+                <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+                <span style={{ fontSize: 11, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
+                  {selectedHistory.length} registro{selectedHistory.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
+                {[
+                  { label: 'Entregas', value: historyStats.entregas, icon: <Truck size={13} />, color: '#4ADE80' },
+                  { label: 'Devoluções', value: historyStats.devolucoes, icon: <ArrowLeftRight size={13} />, color: '#FCD34D' },
+                  { label: 'Itens recebidos', value: historyStats.itens, icon: <Package size={13} />, color: '#22D3EE' },
+                ].map(({ label, value, icon, color }) => (
+                  <div key={label} style={{ background: `${color}0d`, border: `1px solid ${color}22`, borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                      {icon} {label}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* History table */}
+            <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto' }}>
+                {selectedHistory.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '36px 16px', color: '#3D4257', fontSize: 13 }}>
+                    Nenhuma movimentação registrada para este colaborador.
+                  </div>
+                ) : (
+                  <table className="data-table" style={{ minWidth: 620 }}>
+                    <thead>
+                      <tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>EPI</th>
+                        <th>Qtd</th>
+                        <th>Operador</th>
+                        <th>Obs</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedHistory.map((m) => (
+                        <tr key={m.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: '#5C6388', whiteSpace: 'nowrap' }}>{m.date}</td>
+                          <td><MovementTypeBadge type={m.type} /></td>
+                          <td style={{ fontSize: 12.5, color: '#C4C9E2', fontWeight: 600 }}>{m.epi}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 700, color: m.type === 'Devolução' ? '#FCD34D' : '#4ADE80' }}>
+                            {m.type === 'Devolução' || m.type === 'Baixa' ? '-' : '+'}{m.quantity}
+                          </td>
+                          <td style={{ fontSize: 12, color: '#6B7280' }}>{m.operator}</td>
+                          <td style={{ fontSize: 11.5, color: '#5C6388', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.notes || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={closeModal} style={{
                 flex: 1, padding: '11px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',

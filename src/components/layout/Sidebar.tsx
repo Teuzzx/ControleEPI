@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, Package, Tag, UsersRound, ArrowLeftRight,
-  BarChart3, Shield, ChevronLeft, ChevronRight, ChevronDown, Bell, Settings, LogOut,
+  BarChart3, ChevronLeft, ChevronRight, ChevronDown, Bell, Settings, LogOut,
   Warehouse, FolderOpen, Building2, Send, Boxes, Megaphone,
 } from 'lucide-react'
 
@@ -237,15 +237,17 @@ export default function Sidebar({ current, onNavigate, onLogout, userName, userR
         justifyContent: collapsed ? 'center' : 'flex-start',
         flexShrink: 0,
       }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 9,
-          background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
-          flexShrink: 0,
-        }}>
-          <Shield size={16} color="white" strokeWidth={2.5} />
-        </div>
+        <img
+          src="/logo-norion.png"
+          alt="Norion"
+          title="Norion"
+          style={{
+            width: 36, height: 36, borderRadius: 9, objectFit: 'cover',
+            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            flexShrink: 0, background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+        />
         {!collapsed && (
           <div>
             <div style={{

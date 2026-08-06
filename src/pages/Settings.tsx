@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { Plus, X, UserCog, Shield, Building2, Trash2, KeyRound, AlertCircle, CheckCircle2, Users, Mail, Lock, Monitor, Smartphone, Laptop } from 'lucide-react'
 import { fetchUsers, fetchCompanies, createUser, deleteUser, resetUserPassword, updateUserAccess, type UserRow, type Company, type AccessLevel } from '../lib/auth'
 import Modal from '../components/ui/Modal'
@@ -9,7 +9,7 @@ const ACCESS_LABEL: Record<AccessLevel, string> = {
   both: 'Web + Mobile',
 }
 
-const ACCESS_ICON: Record<AccessLevel, JSX.Element> = {
+const ACCESS_ICON: Record<AccessLevel, ReactNode> = {
   web: <Monitor size={13} />,
   mobile: <Smartphone size={13} />,
   both: <Laptop size={13} />,

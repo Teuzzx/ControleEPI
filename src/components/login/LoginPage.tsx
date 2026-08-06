@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type MouseEvent } from 'react'
 import {
-  Eye, EyeOff, Shield, HardHat, Mail, Lock, ArrowRight, ArrowLeft,
+  Eye, EyeOff, Mail, Lock, ArrowRight, ArrowLeft,
   Loader2, AlertCircle, CheckCircle2, ShieldCheck, KeyRound, Send,
 } from 'lucide-react'
 import { login, requestPasswordReset, resetPasswordWithCode, type SessionUser } from '../../lib/auth'
@@ -223,8 +223,8 @@ export default function LoginPage({ onLogin }: Props) {
             <div
               className="blur-reveal float-gentle"
               style={{
-                width: 88,
-                height: 88,
+                width: 96,
+                height: 96,
                 margin: '0 auto 22px',
                 borderRadius: 30,
                 background: 'rgba(255,255,255,0.06)',
@@ -236,26 +236,19 @@ export default function LoginPage({ onLogin }: Props) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              <Shield size={42} color="#8B7CFF" strokeWidth={1.75} />
-              <div
+              <img
+                src="/logo-norion.png"
+                alt="Norion"
                 style={{
-                  position: 'absolute',
-                  bottom: 10,
-                  right: 10,
-                  width: 28,
-                  height: 28,
-                  borderRadius: 10,
-                  background: 'linear-gradient(135deg, #6D5EF8, #8575FF)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 6px 18px rgba(109,94,248,0.55)',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: 30,
                 }}
-              >
-                <HardHat size={15} color="#FFFFFF" strokeWidth={2.2} />
-              </div>
+              />
             </div>
 
             <h1
