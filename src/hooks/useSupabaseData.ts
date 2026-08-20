@@ -64,14 +64,16 @@ function computeStatus(total: number, min: number): Epi['status'] {
   return 'Crítico'
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toISOString().split('T')[0]

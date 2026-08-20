@@ -1,5 +1,5 @@
 {
-  "version": "1.0.13",
-  "notes": "Correção do modo offline: entradas e saídas feitas sem internet agora sincronizam corretamente mesmo quando a filial não tem banco próprio (usam o banco da matriz), com retry automático das operações com erro e mensagem clara do motivo.",
+  "version": "1.0.14",
+  "notes": "Correção da data das movimentações: registros feitos online no app ficavam sem horário no sistema web. Agora toda saída e devolução grava a data/hora corretas, e o web mostra as fotos e assinaturas direto na lista de Movimentações.",
   "apkUrl": "/Controle-EPI.apk"
 }

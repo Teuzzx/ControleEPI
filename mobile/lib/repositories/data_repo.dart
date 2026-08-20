@@ -190,7 +190,9 @@ class DataRepo {
           'cart_id': cartId,
           'photo_url': photoUrl,
           'signature_url': signatureUrl,
-          'created_at': createdAt?.toUtc().toIso8601String(),
+          // Quando a operação é online o `createdAt` não chega — usa o horário
+          // de agora em UTC para o registro nunca ficar sem data no web.
+          'created_at': (createdAt ?? DateTime.now()).toUtc().toIso8601String(),
           'offline_created': offlineCreated,
         });
       }
@@ -322,7 +324,8 @@ class DataRepo {
           'cart_id': cartId,
           'photo_url': photoUrl,
           'signature_url': signatureUrl,
-          'created_at': createdAt?.toUtc().toIso8601String(),
+          // Idem saída: sem createdAt (online) usa o horário atual em UTC.
+          'created_at': (createdAt ?? DateTime.now()).toUtc().toIso8601String(),
           'offline_created': offlineCreated,
         });
       }

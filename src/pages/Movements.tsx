@@ -51,7 +51,10 @@ export default function Movements() {
       .map(([key, list]) => ({
         key,
         list,
-        date: list.reduce((max, m) => (m.date > max ? m.date : max), ''),
+        date: list.reduce((max, m) => {
+          if (m.date === '—') return max
+          return m.date > max ? m.date : max
+        }, ''),
       }))
       .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0))
   }, [withMedia])
@@ -291,14 +294,15 @@ export default function Movements() {
                 <th>Quantidade</th>
                 <th>Data / Hora</th>
                 <th>Origem</th>
+                <th>Foto / Assinatura</th>
                 <th>Observação</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Carregando movimentações...</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Carregando movimentações...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Nenhuma movimentação encontrada.</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 48, color: '#3D4257' }}>Nenhuma movimentação encontrada.</td></tr>
               ) : paged.map((m) => {
                 const colors = TYPE_COLORS[m.type]
                 return (
@@ -345,6 +349,20 @@ export default function Movements() {
                         </div>
                       )}
                     </td>
+                    <td>
+                      {(m.photoUrl || m.signatureUrl) ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {m.photoUrl && (
+                            <ThumbButton label="Foto" url={m.photoUrl} />
+                          )}
+                          {m.signatureUrl && (
+                            <ThumbButton label="Assinatura" url={m.signatureUrl} />
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#2D3050' }}>—</span>
+                      )}
+                    </td>
                     <td style={{ fontSize: 12, color: '#3D4257', maxWidth: 180 }}>{m.notes || '—'}</td>
                   </tr>
                 )
@@ -375,6 +393,24 @@ export default function Movements() {
       </>
       )}
     </div>
+  )
+}
+
+function ThumbButton({ label, url }: { label: string; url: string }) {
+  return (
+    <button
+      onClick={() => window.open(url, '_blank')}
+      title={`Abrir ${label.toLowerCase()}`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '4px 9px', borderRadius: 7, cursor: 'pointer',
+        background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.22)',
+        color: '#67E8F9', fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      {label === 'Foto' ? '📷' : '✍️'} {label}
+    </button>
   )
 }
 
