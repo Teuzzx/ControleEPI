@@ -1,25 +1,47 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, RefreshCw, CheckCheck, Building2, Megaphone, RefreshCcw } from 'lucide-react'
+import {
+  Bell, RefreshCw, CheckCheck, Building2, Megaphone, RefreshCcw,
+  LayoutDashboard, Users, Package, Tag, UsersRound, ArrowLeftRight,
+  BarChart3, Warehouse, Send, Settings,
+  Info, AlertTriangle, Truck, type LucideIcon,
+} from 'lucide-react'
 import { useSupabaseData } from '../../hooks/useSupabaseData'
 import { checkForAppUpdate, APP_VERSION, type AppUpdate } from '../../lib/version'
+import type { Page } from './Sidebar'
 
 interface Props {
   title: string
   subtitle?: string
   companyName: string
   role: 'matriz' | 'filial'
+  page: Page
 }
 
-const TYPE_ICON: Record<string, string> = {
-  distribuicao: '📦',
-  info: 'ℹ️',
-  alerta: '⚠️',
-  aviso: '📢',
+const PAGE_ICONS: Record<Page, { icon: LucideIcon; color: string; bg: string }> = {
+  overview:     { icon: LayoutDashboard, color: '#818CF8', bg: 'rgba(99,102,241,0.14)' },
+  employees:    { icon: Users,           color: '#67E8F9', bg: 'rgba(34,211,238,0.12)' },
+  stock:        { icon: Package,         color: '#4ADE80', bg: 'rgba(16,185,129,0.12)' },
+  entries:      { icon: Warehouse,       color: '#A5B4FC', bg: 'rgba(99,102,241,0.12)' },
+  categories:   { icon: Tag,             color: '#FCD34D', bg: 'rgba(245,158,11,0.12)' },
+  departments:  { icon: UsersRound,      color: '#F0ABFC', bg: 'rgba(217,70,239,0.12)' },
+  movements:    { icon: ArrowLeftRight,  color: '#C4B5FD', bg: 'rgba(139,92,246,0.12)' },
+  reports:      { icon: BarChart3,       color: '#5EEAD4', bg: 'rgba(20,184,166,0.12)' },
+  companies:    { icon: Building2,       color: '#FCA5A5', bg: 'rgba(244,63,94,0.12)' },
+  distribution: { icon: Send,            color: '#93C5FD', bg: 'rgba(59,130,246,0.12)' },
+  avisos:       { icon: Megaphone,       color: '#FDE68A', bg: 'rgba(245,158,11,0.12)' },
+  settings:     { icon: Settings,        color: '#CBD5E1', bg: 'rgba(148,163,184,0.14)' },
+}
+
+const TYPE_META: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
+  distribuicao: { icon: Truck,       color: '#67E8F9', bg: 'rgba(34,211,238,0.12)' },
+  info:         { icon: Info,        color: '#818CF8', bg: 'rgba(99,102,241,0.12)' },
+  alerta:       { icon: AlertTriangle, color: '#F87171', bg: 'rgba(244,63,94,0.12)' },
+  aviso:        { icon: Megaphone,   color: '#FCD34D', bg: 'rgba(245,158,11,0.12)' },
 }
 
 const UPDATE_DISMISS_KEY = 'epi_update_dismissed'
 
-export default function TopBar({ title, subtitle, companyName, role }: Props) {
+export default function TopBar({ title, subtitle, companyName, role, page }: Props) {
   const { notifications, loading, refresh, markNotificationRead, markAllNotificationsRead } = useSupabaseData()
   const [open, setOpen] = useState(false)
   const [update, setUpdate] = useState<AppUpdate | null>(null)
@@ -120,20 +142,34 @@ export default function TopBar({ title, subtitle, companyName, role }: Props) {
       zIndex: 1000,
     }}>
       {/* Title */}
-      <div style={{ flex: 1 }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 16.5, fontWeight: 700,
-          color: '#E8EAF6', margin: 0,
-          letterSpacing: '-0.025em', lineHeight: 1.2,
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+          background: PAGE_ICONS[page].bg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
         }}>
-          {title}
-        </h1>
-        {subtitle && (
-          <p style={{ fontSize: 11.5, color: '#3D4257', margin: 0, fontWeight: 400 }}>
-            {subtitle}
-          </p>
-        )}
+          {(() => {
+            const Icon = PAGE_ICONS[page].icon
+            return <Icon size={17} color={PAGE_ICONS[page].color} strokeWidth={2.2} />
+          })()}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 16.5, fontWeight: 700,
+            color: '#E8EAF6', margin: 0,
+            letterSpacing: '-0.025em', lineHeight: 1.2,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {title}
+          </h1>
+          {subtitle && (
+            <p style={{ fontSize: 11.5, color: '#3D4257', margin: 0, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {subtitle}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Company badge */}
@@ -281,7 +317,16 @@ export default function TopBar({ title, subtitle, companyName, role }: Props) {
                   onMouseLeave={(e) => { e.currentTarget.style.background = n.read ? 'rgba(255,255,255,0.02)' : 'rgba(99,102,241,0.08)' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14 }}>{TYPE_ICON[n.type] ?? '📌'}</span>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                      background: (TYPE_META[n.type] ?? TYPE_META.info).bg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {(() => {
+                        const Icon = (TYPE_META[n.type] ?? TYPE_META.info).icon
+                        return <Icon size={13} color={(TYPE_META[n.type] ?? TYPE_META.info).color} />
+                      })()}
+                    </div>
                     <span style={{
                       fontSize: 12.5, fontWeight: 700, color: n.read ? '#6B7280' : '#E8EAF6',
                       flex: 1,

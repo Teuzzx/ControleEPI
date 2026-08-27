@@ -166,6 +166,7 @@ export default function App() {
             subtitle={meta.subtitle}
             companyName={user.companyName}
             role={user.role}
+            page={currentPage}
           />
 
           <main

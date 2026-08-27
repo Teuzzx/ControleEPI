@@ -40,10 +40,11 @@ function useCompanyStock(companies: Company[]): [CompanyStock[], () => void] {
         continue
       }
       const client = createCompanyClient(c.supabase_url, c.anon_key)
-      client
-        .from('epis')
-        .select('total_quantity')
-        .then(({ data, error }) => {
+      ;(async () => {
+        try {
+          const { data, error } = await client
+            .from('epis')
+            .select('total_quantity')
           setStocks((prev) =>
             prev.map((s) =>
               s.companyId === c.id
@@ -57,7 +58,22 @@ function useCompanyStock(companies: Company[]): [CompanyStock[], () => void] {
                 : s,
             ),
           )
-        })
+        } catch (e: unknown) {
+          setStocks((prev) =>
+            prev.map((s) =>
+              s.companyId === c.id
+                ? {
+                    ...s,
+                    loading: false,
+                    count: 0,
+                    units: 0,
+                    error: (e as Error)?.message || 'Falha ao consultar o banco da filial.',
+                  }
+                : s,
+            ),
+          )
+        }
+      })()
     }
   }, [companies])
 
@@ -269,6 +285,19 @@ export default function Companies() {
                   </div>
                 </div>
               </div>
+
+              {stock?.error && !stock.loading && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8, marginTop: 12,
+                  padding: '9px 12px', borderRadius: 10,
+                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                }}>
+                  <AlertCircle size={13} color="#F87171" />
+                  <span style={{ fontSize: 11.5, color: '#F87171', lineHeight: 1.4 }}>
+                    {stock.error}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}

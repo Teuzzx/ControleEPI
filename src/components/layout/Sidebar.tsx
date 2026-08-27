@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, Package, Tag, UsersRound, ArrowLeftRight,
-  BarChart3, ChevronLeft, ChevronRight, ChevronDown, Bell, Settings, LogOut,
+  BarChart3, ChevronLeft, ChevronRight, ChevronDown, Settings, LogOut,
   Warehouse, FolderOpen, Building2, Send, Boxes, Megaphone,
 } from 'lucide-react'
 
@@ -284,35 +284,6 @@ export default function Sidebar({ current, onNavigate, onLogout, userName, userR
         padding: collapsed ? '12px 8px' : '12px 10px',
         display: 'flex', flexDirection: 'column', gap: 2,
       }}>
-        {[
-          { icon: <Bell size={16} />, label: 'Notificações' },
-        ].map(({ icon, label }) => (
-          <button
-            key={label}
-            title={collapsed ? label : undefined}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-              padding: collapsed ? '9px 0' : '9px 12px',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              borderRadius: 9, border: 'none', cursor: 'pointer',
-              background: 'transparent', color: '#3D4257',
-              fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 500,
-              transition: 'background 0.15s, color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-              e.currentTarget.style.color = '#6B7280'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.color = '#3D4257'
-            }}
-          >
-            {icon}
-            {!collapsed && <span>{label}</span>}
-          </button>
-        ))}
-
         {/* Configurações — gerencia usuários e acesso */}
         <button
           onClick={() => onNavigate('settings')}
@@ -391,6 +362,25 @@ export default function Sidebar({ current, onNavigate, onLogout, userName, userR
             </button>
           )}
         </div>
+
+        {collapsed && (
+          <button
+            onClick={onLogout}
+            title="Sair"
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 10,
+              padding: '9px 0',
+              borderRadius: 9, border: 'none', cursor: 'pointer',
+              background: 'rgba(244,63,94,0.06)', color: '#F87171',
+              transition: 'background 0.15s, color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(244,63,94,0.12)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(244,63,94,0.06)' }}
+          >
+            <LogOut size={16} />
+          </button>
+        )}
       </div>
 
       {/* Collapse toggle */}

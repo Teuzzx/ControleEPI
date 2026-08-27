@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, Activity, ChevronDown, UserCheck } from 'lucide-react'
+import { Search, Activity, UserCheck } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
 import type { Movement } from '../data/mock'
 
@@ -64,7 +64,7 @@ export default function Movements() {
     return !q || g.list.some((m) => m.employee.toLowerCase().includes(q) || m.epi.toLowerCase().includes(q))
   })
 
-  const totalSaidas = groups.reduce((s, g) => s + g.list.reduce((t, m) => t + m.quantity, 0), 0)
+  const totalSaidas = filteredGroups.reduce((s, g) => s + g.list.reduce((t, m) => t + m.quantity, 0), 0)
 
   return (
     <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>

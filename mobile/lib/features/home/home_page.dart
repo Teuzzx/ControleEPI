@@ -10,11 +10,18 @@ import '../../core/update_service.dart';
 import '../../providers.dart';
 import '../../repositories/data_repo.dart';
 
-const _typeIcons = {
-  'distribuicao': '📦',
-  'info': 'ℹ️',
-  'alerta': '⚠️',
-  'aviso': '📢',
+const _typeIcon = {
+  'distribuicao': Icons.inventory_2_outlined,
+  'info': Icons.info_outline,
+  'alerta': Icons.warning_amber_rounded,
+  'aviso': Icons.campaign_outlined,
+};
+
+const _typeColor = {
+  'distribuicao': kIndigo,
+  'info': kCyan,
+  'alerta': kAmber,
+  'aviso': kAmber,
 };
 
 class HomePage extends ConsumerStatefulWidget {
@@ -182,9 +189,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          _typeIcons[n['type'] as String?] ?? '📌',
-                                          style: const TextStyle(fontSize: 16),
+                                        Container(
+                                          width: 34,
+                                          height: 34,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: (_typeColor[n['type'] as String?] ?? kSub)
+                                                .withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Icon(
+                                            _typeIcon[n['type'] as String?] ??
+                                                Icons.notifications_none,
+                                            size: 17,
+                                            color: _typeColor[n['type'] as String?] ?? kSub,
+                                          ),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
@@ -328,6 +347,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 14),
+          child: Icon(Icons.shield_rounded, color: kIndigo, size: 24),
+        ),
         title: const Text('Controle de EPI'),
         actions: [
           Stack(
@@ -444,7 +467,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             const SizedBox(height: 24),
             _ActionCard(
-              icon: '📦',
+              icon: Icons.inventory_2_rounded,
               title: 'Dar Saída de EPI',
               subtitle: 'Entrega com foto e assinatura',
               color: kIndigo,
@@ -452,7 +475,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             const SizedBox(height: 12),
             _ActionCard(
-              icon: '↩️',
+              icon: Icons.replay_rounded,
               title: 'Registrar Devolução',
               subtitle: 'Item devolvido volta ao estoque',
               color: kCyan,
@@ -460,7 +483,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             const SizedBox(height: 12),
             _ActionCard(
-              icon: '📊',
+              icon: Icons.bar_chart_rounded,
               title: 'Consultar Estoque',
               subtitle: 'Somente leitura',
               color: kGreen,
@@ -555,7 +578,7 @@ class _ActionCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final String icon;
+  final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
@@ -572,11 +595,21 @@ class _ActionCard extends StatelessWidget {
             height: 52,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.13),
+              gradient: LinearGradient(
+                colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.55)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.28),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-            child: Text(icon, style: const TextStyle(fontSize: 24)),
+            child: Icon(icon, size: 24, color: Colors.white),
           ),
           const SizedBox(width: 14),
           Expanded(

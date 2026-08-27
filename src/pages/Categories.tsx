@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Edit2, Trash2, X, Tag } from 'lucide-react'
+import { Plus, Edit2, Trash2, X } from 'lucide-react'
 import { useSupabaseData } from '../hooks/useSupabaseData'
 import Modal from '../components/ui/Modal'
 

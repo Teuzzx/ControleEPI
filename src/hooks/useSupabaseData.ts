@@ -11,14 +11,14 @@ import type {
 } from "../data/mock"
 
 export interface ChartData {
-  stockByCategory: { name: string value: number fill: string }[]
+  stockByCategory: { name: string; value: number; fill: string }[]
   movementsOverTime: {
     month: string
     entregas: number
     devolucoes: number
     entradas: number
   }[]
-  stockTrend: { day: string stock: number }[]
+  stockTrend: { day: string; stock: number }[]
 }
 
 export interface Notification {
@@ -311,11 +311,11 @@ export function useSupabaseData() {
     const mappedMovements: Movement[] = dbMovements.map((m) => ({
       id: m.id,
       type: m.type,
-      employee: m.employee_name,
-      epi: m.epi_name,
+      employee: m.employee_name ?? "",
+      epi: m.epi_name ?? "",
       quantity: m.quantity,
       date: formatDateTime(m.created_at),
-      operator: m.operator,
+      operator: m.operator ?? "",
       company: m.company_name || undefined,
       notes: m.notes || undefined,
       color: m.color || undefined,
@@ -423,6 +423,7 @@ export function useSupabaseData() {
       sector?: string
       company?: string
       status?: string
+      admissionDate?: string
     }) => {
       const registration = (data.registration || "").trim()
       const cpf = (data.cpf || "").trim()
@@ -459,6 +460,7 @@ export function useSupabaseData() {
         department_id: departmentId,
         sector: data.sector || "",
         company: data.company || "Norion",
+        admission_date: data.admissionDate || null,
         status: data.status || "Ativo",
       })
       if (error) throw new Error(error.message)
@@ -489,6 +491,7 @@ export function useSupabaseData() {
         sector?: string
         company?: string
         status?: string
+        admissionDate?: string
       },
     ) => {
       const registration = (data.registration || "").trim()
@@ -530,6 +533,7 @@ export function useSupabaseData() {
           department_id: departmentId,
           sector: data.sector || "",
           company: data.company || "Norion",
+          admission_date: data.admissionDate || null,
           status: data.status || "Ativo",
         })
         .eq("id", id)
@@ -540,7 +544,7 @@ export function useSupabaseData() {
   )
 
   const addDepartment = useCallback(
-    async (data: { name: string description?: string color?: string }) => {
+    async (data: { name: string; description?: string; color?: string }) => {
       const { error } = await client.from("departments").insert({
         name: data.name,
         description: data.description || "",
@@ -554,6 +558,16 @@ export function useSupabaseData() {
 
   const deleteDepartment = useCallback(
     async (id: number) => {
+      const { data: members, error: countErr } = await client
+        .from("employees")
+        .select("id")
+        .eq("department_id", id)
+        .limit(1)
+      if (countErr) throw new Error(countErr.message)
+      if (members && members.length > 0)
+        throw new Error(
+          "Não é possível excluir: há colaboradores vinculados a este departamento. Remova ou mova os colaboradores primeiro.",
+        )
       const { error } = await client.from("departments").delete().eq("id", id)
       if (error) throw new Error(error.message)
       await refresh()
@@ -630,6 +644,16 @@ export function useSupabaseData() {
 
   const deleteCategory = useCallback(
     async (id: number) => {
+      const { data: items, error: countErr } = await client
+        .from("epis")
+        .select("id")
+        .eq("category_id", id)
+        .limit(1)
+      if (countErr) throw new Error(countErr.message)
+      if (items && items.length > 0)
+        throw new Error(
+          "Não é possível excluir: há EPIs vinculados a esta categoria. Remova ou recategorize os EPIs primeiro.",
+        )
       const { error } = await client.from("categories").delete().eq("id", id)
       if (error) throw new Error(error.message)
       await refresh()
@@ -883,7 +907,7 @@ export function useSupabaseData() {
         .eq("name", epiName)
         .maybeSingle()
 
-      let epiRow: { id: number name: string total_quantity: number } | null =
+      let epiRow: { id: number; name: string; total_quantity: number } | null =
         epiQuery.data ?? null
 
       if (!epiRow) {
@@ -930,6 +954,10 @@ export function useSupabaseData() {
 
       const epiId = epiRow.id
 
+      const entryDate = data.date?.trim()
+        ? `${data.date.trim()}T12:00:00Z`
+        : null
+
       const { error: entryErr } = await client.from("stock_entries").insert(
         data.variants.map((v) => ({
           epi_id: epiId,
@@ -941,6 +969,7 @@ export function useSupabaseData() {
           color: v.color || "",
           size: v.size || "",
           notes: data.notes || "",
+          ...(entryDate ? { created_at: entryDate } : {}),
         })),
       )
       if (entryErr) throw new Error(entryErr.message)
@@ -998,6 +1027,7 @@ export function useSupabaseData() {
         quantity: total,
         operator: "Sistema Web",
         notes: `Entrada de estoque: ${data.variants.map((v) => `${v.size || v.color || "Único"} x${v.quantity}`).join(", ")}`,
+        ...(entryDate ? { created_at: entryDate } : {}),
       })
       if (movErr) throw new Error(movErr.message)
 

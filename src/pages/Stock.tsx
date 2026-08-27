@@ -2,7 +2,6 @@ import { useState } from "react"
 import {
   Search,
   Plus,
-  Eye,
   X,
   Package,
   ChevronDown,
@@ -57,12 +56,14 @@ const EMPTY_FORM: EpiForm = {
 
 function caDaysLeft(expiry?: string): number | null {
   if (!expiry) return null
-  const d = new Date(expiry)
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(expiry)
+    ? new Date(Number(expiry.slice(0, 4)), Number(expiry.slice(5, 7)) - 1, Number(expiry.slice(8, 10)))
+    : new Date(expiry)
   if (Number.isNaN(d.getTime())) return null
   return Math.ceil((d.getTime() - Date.now()) / 86400000)
 }
 
-function caChipColor(days: number | null): { bg: string text: string } {
+function caChipColor(days: number | null): { bg: string; text: string } {
   if (days === null) return { bg: "rgba(255,255,255,0.04)", text: "#5C6388" }
   if (days < 0) return { bg: "rgba(244,63,94,0.12)", text: "#F87171" }
   if (days <= 60) return { bg: "rgba(245,158,11,0.12)", text: "#FCD34D" }
@@ -75,7 +76,6 @@ export default function Stock() {
   const [search, setSearch] = useState("")
   const [catFilter, setCatFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [selected, setSelected] = useState<Epi | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<Epi | null>(null)
@@ -421,7 +421,7 @@ export default function Stock() {
         }}
       >
         {filtered.map((epi, idx) => {
-          const pct = Math.round((epi.totalQuantity / epi.minQuantity) * 100)
+          const pct = epi.minQuantity > 0 ? Math.round((epi.totalQuantity / epi.minQuantity) * 100) : 100
           const isExpanded = expanded[epi.id]
           return (
             <div
@@ -708,10 +708,10 @@ export default function Stock() {
                   }}
                 >
                   {/* Group by color */}
-                  {Array.from(new Set(epi.variants.map((v) => v.color))).map(
+                  {Array.from(new Set(epi.variants.map((v) => v.color || v.size || "Único"))).map(
                     (color) => {
                       const colorVariants = epi.variants.filter(
-                        (v) => v.color === color,
+                        (v) => (v.color || v.size || "Único") === color,
                       )
                       return (
                         <div key={color} style={{ marginBottom: 8 }}>

@@ -9,6 +9,13 @@ interface VariantRow {
   quantity: string
 }
 
+function formatEntryDate(value?: string): string {
+  if (!value) return '—'
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const d = new Date(normalized)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
+}
+
 export default function Entries() {
   const { entries, loading, addEntry } = useSupabaseData()
   const [showAdd, setShowAdd] = useState(false)
@@ -146,7 +153,7 @@ export default function Entries() {
                     </td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#818CF8' }}>{entry.batch || '—'}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#5C6388' }}>
-                      {entry.date ? new Date(entry.date).toLocaleDateString('pt-BR') : '—'}
+                      {formatEntryDate(entry.date)}
                     </td>
                     <td>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: '#4ADE80' }}>+{entry.quantity}</span>

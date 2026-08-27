@@ -10,11 +10,23 @@ import {
 import { useSupabaseData } from '../hooks/useSupabaseData'
 import type { Page } from '../components/layout/Sidebar'
 
+function parseLocalDate(iso?: string): Date | null {
+  if (!iso) return null
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+    : new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 function caDaysLeft(expiry?: string): number | null {
-  if (!expiry) return null
-  const d = new Date(expiry)
-  if (Number.isNaN(d.getTime())) return null
+  const d = parseLocalDate(expiry)
+  if (!d) return null
   return Math.ceil((d.getTime() - Date.now()) / 86400000)
+}
+
+function caExpiryBR(expiry?: string): string {
+  const d = parseLocalDate(expiry)
+  return d ? d.toLocaleDateString('pt-BR') : '—'
 }
 
 function MetricCard({
@@ -330,7 +342,7 @@ export default function Overview({ onNavigate }: { onNavigate?: (page: Page) => 
               </div>
             ) : (<>
               {lowStock.map((item) => {
-                const pct = Math.round((item.totalQuantity / item.minQuantity) * 100)
+                const pct = item.minQuantity > 0 ? Math.round((item.totalQuantity / item.minQuantity) * 100) : 100
                 return (
                   <div key={item.id} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.025)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -374,7 +386,7 @@ export default function Overview({ onNavigate }: { onNavigate?: (page: Page) => 
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 12.5, fontWeight: 600, color: '#C4C9E2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
                           <div style={{ fontSize: 11, color: '#3D4257', fontFamily: 'var(--font-mono)' }}>
-                            CA {item.caNumber || '—'} • {new Date(item.caExpiry!).toLocaleDateString('pt-BR')}
+                            CA {item.caNumber || '—'} • {caExpiryBR(item.caExpiry)}
                           </div>
                         </div>
                         <span className={`badge ${(days ?? 0) < 0 ? 'badge-danger' : 'badge-warning'}`} style={{ flexShrink: 0 }}>

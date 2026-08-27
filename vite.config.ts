@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -38,6 +39,10 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: '0.0.0.0',
       port: parseInt(process.env.PORT || '8443'),
+    },
+    test: {
+      environment: 'jsdom',
+      pool: 'threads',
     },
   }
 })

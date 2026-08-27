@@ -56,7 +56,22 @@ interface ReportData {
   emptyMsg: string
 }
 
-function buildReportData(id: string, epis: Epi[], movements: Movement[], employees: Employee[]): ReportData {
+function formatAdmission(value?: string): string {
+  if (!value) return '—'
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)))
+    : new Date(value)
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('pt-BR')
+}
+
+function buildReportData(
+  id: string,
+  epis: Epi[],
+  movements: Movement[],
+  employees: Employee[],
+  cutoffDate: string | null,
+): ReportData {
+  const inPeriod = (m: Movement) => !cutoffDate || m.date.slice(0, 10) >= cutoffDate
   switch (id) {
     case 'stock':
       return {
@@ -80,7 +95,7 @@ function buildReportData(id: string, epis: Epi[], movements: Movement[], employe
       return {
         title: 'Movimentações',
         headers: ['#', 'Tipo', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Operador', 'Obs'],
-        rows: movements.map((m) => [String(m.id), m.type, m.employee, m.epi, String(m.quantity), m.date, m.operator, m.notes || '']),
+        rows: movements.filter(inPeriod).map((m) => [String(m.id), m.type, m.employee, m.epi, String(m.quantity), m.date, m.operator, m.notes || '']),
         badgeCol: 1,
         emptyMsg: 'Nenhuma movimentação registrada.',
       }
@@ -88,7 +103,7 @@ function buildReportData(id: string, epis: Epi[], movements: Movement[], employe
       return {
         title: 'Histórico de Colaborador',
         headers: ['Nome', 'Matrícula', 'CPF', 'Cargo', 'Equipe', 'Setor', 'Empresa', 'Admissão', 'Status'],
-        rows: employees.map((e) => [e.name, e.registration, e.cpf, e.role, e.team, e.sector, e.company, new Date(e.admissionDate).toLocaleDateString('pt-BR'), e.status]),
+        rows: employees.map((e) => [e.name, e.registration, e.cpf, e.role, e.team, e.sector, e.company, e.admissionDate ? formatAdmission(e.admissionDate) : '—', e.status]),
         badgeCol: 8,
         emptyMsg: 'Nenhum colaborador cadastrado.',
       }
@@ -96,7 +111,7 @@ function buildReportData(id: string, epis: Epi[], movements: Movement[], employe
       return {
         title: 'Histórico de Produto',
         headers: ['EPI', 'Tipo', 'Colaborador', 'Qtd', 'Data', 'Operador', 'Obs'],
-        rows: movements.map((m) => [m.epi, m.type, m.employee, String(m.quantity), m.date, m.operator, m.notes || '']),
+        rows: movements.filter(inPeriod).map((m) => [m.epi, m.type, m.employee, String(m.quantity), m.date, m.operator, m.notes || '']),
         badgeCol: 1,
         emptyMsg: 'Nenhuma movimentação registrada.',
       }
@@ -114,6 +129,7 @@ function buildReportData(id: string, epis: Epi[], movements: Movement[], employe
         headers: ['#', 'Colaborador', 'EPI', 'Qtd', 'Data', 'Obs'],
         rows: movements
           .filter((m) => m.type === 'Devolução')
+          .filter(inPeriod)
           .map((m) => [String(m.id), m.employee, m.epi, String(m.quantity), m.date, m.notes || '']),
         badgeCol: -1,
         emptyMsg: 'Nenhuma devolução registrada.',
@@ -124,6 +140,7 @@ function buildReportData(id: string, epis: Epi[], movements: Movement[], employe
         headers: ['EPI', 'Tipo', 'Colaborador', 'Qtd', 'Data', 'Operador', 'Obs'],
         rows: movements
           .filter((m) => m.type === 'Entrada')
+          .filter(inPeriod)
           .map((m) => [m.epi, m.type, m.employee, String(m.quantity), m.date, m.operator, m.notes || '']),
         badgeCol: 1,
         emptyMsg: 'Nenhuma entrada registrada.',
@@ -277,6 +294,22 @@ const PERIOD_LABEL: Record<string, string> = {
   year: 'Anual',
 }
 
+const PERIOD_DAYS: Record<string, number> = {
+  week: 7,
+  month: 30,
+  quarter: 90,
+  year: 365,
+}
+
+function periodCutoff(period: string): string | null {
+  const days = PERIOD_DAYS[period]
+  if (!days) return null
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 export default function Reports() {
   const { employees, epis, movements, loading } = useSupabaseData()
   const [selectedReport, setSelectedReport] = useState('stock')
@@ -285,8 +318,8 @@ export default function Reports() {
 
   const currentType = REPORT_TYPES.find((r) => r.id === selectedReport) ?? REPORT_TYPES[0]
   const reportData = useMemo(
-    () => buildReportData(selectedReport, epis, movements, employees),
-    [selectedReport, epis, movements, employees],
+    () => buildReportData(selectedReport, epis, movements, employees, periodCutoff(period)),
+    [selectedReport, epis, movements, employees, period],
   )
 
   const lowStockItems = useMemo(() => epis.filter((e) => e.status === 'Estoque Baixo' || e.status === 'Crítico'), [epis])

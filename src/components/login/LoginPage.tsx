@@ -26,11 +26,21 @@ const C = {
   glow: 'rgba(109, 94, 248, 0.25)',
 }
 
+const EMAIL_KEY = 'epi_login_email'
+
+function readSavedEmail(): string {
+  try {
+    return localStorage.getItem(EMAIL_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
 export default function LoginPage({ onLogin }: Props) {
-  const [identifier, setIdentifier] = useState('')
+  const [identifier, setIdentifier] = useState(() => readSavedEmail())
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [remember, setRemember] = useState(false)
+  const [remember, setRemember] = useState(() => readSavedEmail() !== '')
   const [authState, setAuthState] = useState<AuthState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
@@ -55,6 +65,15 @@ export default function LoginPage({ onLogin }: Props) {
 
     try {
       const user = await login(identifier, password)
+      try {
+        if (remember) {
+          localStorage.setItem(EMAIL_KEY, identifier.trim())
+        } else {
+          localStorage.removeItem(EMAIL_KEY)
+        }
+      } catch {
+        // armazenamento indisponível: segue sem persistir
+      }
       setAuthState('success')
       await new Promise((r) => setTimeout(r, 800))
       onLogin(user)

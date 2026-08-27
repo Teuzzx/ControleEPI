@@ -24,6 +24,15 @@ const TYPE_BADGE: Record<string, string> = {
   Distribuição: "badge-info",
 }
 
+function formatDateBR(iso?: string): string {
+  if (!iso) return "—"
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+    : new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString("pt-BR")
+}
+
 function MovementTypeBadge({ type }: { type: string }) {
   return (
     <span
@@ -35,7 +44,7 @@ function MovementTypeBadge({ type }: { type: string }) {
   )
 }
 
-function Avatar({ name, size = 32 }: { name: string size?: number }) {
+function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const initials = name
     .split(" ")
     .slice(0, 2)
@@ -142,6 +151,7 @@ export default function Employees() {
       team: emp.team,
       sector: emp.sector,
       company: emp.company,
+      admissionDate: emp.admissionDate,
       status: emp.status,
     })
     setMode("edit")
@@ -443,7 +453,7 @@ export default function Employees() {
                         color: "#5C6388",
                       }}
                     >
-                      {new Date(emp.admissionDate).toLocaleDateString("pt-BR")}
+                      {formatDateBR(emp.admissionDate)}
                     </td>
                     <td>
                       <span
@@ -662,9 +672,7 @@ export default function Employees() {
                 { label: "Empresa", value: selected.company },
                 {
                   label: "Admissão",
-                  value: new Date(selected.admissionDate).toLocaleDateString(
-                    "pt-BR",
-                  ),
+                  value: formatDateBR(selected.admissionDate),
                 },
               ].map(({ label, value }) => (
                 <div
@@ -1046,7 +1054,8 @@ export default function Employees() {
                 { label: "Cargo", key: "role" },
                 { label: "Setor", key: "sector" },
                 { label: "Empresa", key: "company" },
-              ].map(({ label, key, colSpan }) => (
+                { label: "Data de Admissão", key: "admissionDate", type: "date" },
+              ].map(({ label, key, colSpan, type }) => (
                 <div
                   key={key}
                   style={{ gridColumn: colSpan ? "span 2" : undefined }}
@@ -1067,6 +1076,7 @@ export default function Employees() {
                   <input
                     className="input-field"
                     placeholder={label}
+                    type={type ?? "text"}
                     value={(form as any)[key] || ""}
                     onChange={(e) =>
                       setForm((prev: any) => ({
@@ -1192,6 +1202,7 @@ export default function Employees() {
                       department: f.team || "",
                       sector: f.sector || "",
                       company: f.company || "Norion",
+                      admissionDate: f.admissionDate || "",
                       status: f.status || "Ativo",
                     }
                     if (mode === "edit" && selected) {
