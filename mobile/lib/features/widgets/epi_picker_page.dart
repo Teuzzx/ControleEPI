@@ -140,7 +140,7 @@ class _EpiPickerPageState extends ConsumerState<EpiPickerPage> {
                                             color: kText, fontSize: 13.5, fontWeight: FontWeight.w600)),
                                     Text(
                                       _isSaida
-                                          ? '${epi.totalQuantity} un. disponíveis'
+                                          ? '${epi.availableQuantity} un. disponíveis'
                                           : '${epi.variants.length} variação(ões)',
                                       style: const TextStyle(color: kMuted, fontSize: 11.5),
                                     ),
@@ -166,10 +166,9 @@ class _EpiPickerPageState extends ConsumerState<EpiPickerPage> {
               loading: () => const Center(
                 child: CircularProgressIndicator(strokeWidth: 2, color: kIndigo),
               ),
-              error: (e, _) => Center(
-                child: Text('Erro ao carregar estoque.\n$e',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: kMuted, fontSize: 12.5)),
+              error: (e, _) => ErrorRetry(
+                message: friendlyDataError(e),
+                onRetry: () => ref.invalidate(stockProvider),
               ),
             ),
           ),

@@ -357,60 +357,31 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 child: child,
                               ),
                               child: Container(
-                                width: 88,
-                                height: 88,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.06),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.12)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.4),
-                                      blurRadius: 60,
-                                      offset: const Offset(0, 20),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
+                                  width: 88,
+                                  height: 88,
                                   alignment: Alignment.center,
-                                  children: [
-                                    const Icon(Icons.shield,
-                                        size: 42, color: _cPurpleSoft),
-                                    Positioned(
-                                      right: 10,
-                                      bottom: 10,
-                                      child: Container(
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [_cPurple, _cPurpleLight],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: _cPurple
-                                                  .withValues(alpha: 0.55),
-                                              blurRadius: 18,
-                                              offset: const Offset(0, 6),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                            Icons.sports_motorsports,
-                                            size: 15,
-                                            color: Colors.white),
-                                      ),
-                                    ),
-                                  ],
+                                  decoration: BoxDecoration(
+                                    color: _cPurple.withValues(alpha: 0.13),
+                                    borderRadius:
+                                        BorderRadius.circular(kRadiusLg),
+                                    border: Border.all(
+                                        color: _cPurpleSoft
+                                            .withValues(alpha: 0.34)),
+                                    boxShadow: kDepthLift(0.7),
+                                  ),
+                                  // Antes era um escudo com um badge de
+                                  // capacete de MOTO por cima — não tem
+                                  // relação com EPI e é o clichê de
+                                  // "escudo = segurança". O capacete de obra
+                                  // é o próprio equipamento que o sistema
+                                  // controla.
+                                  child: const Icon(
+                                    Icons.health_and_safety,
+                                    size: 44,
+                                    color: _cPurpleSoft,
+                                  ),
                                 ),
                               ),
-                            ),
                             const SizedBox(height: 22),
                             const Text(
                               'Controle de EPI',
@@ -424,7 +395,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                             ),
                             const SizedBox(height: 10),
                             const Text(
-                              'Sistema Inteligente de Gestão de Equipamentos de Proteção Individual',
+                              'Entrega, devolução e estoque de EPI, com prova de quem recebeu.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: _cMuted,

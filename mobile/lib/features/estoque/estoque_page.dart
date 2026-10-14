@@ -18,6 +18,14 @@ class _EstoquePageState extends ConsumerState<EstoquePage> {
   String _query = '';
   RealtimeChannel? _channel;
 
+  /// Guarda o client usado no `subscribe`.
+  ///
+  /// Antes o `dispose()` chamava `ref.read(dataClientProvider)` — usar o
+  /// `ref` dentro do `dispose` é proibido no Riverpod e, como o provider
+  /// pode ter criado um client novo, o `removeChannel` era aplicado no
+  /// objeto errado, deixando o canal realtime aberto para sempre.
+  SupabaseClient? _subscribedClient;
+
   @override
   void initState() {
     super.initState();
@@ -26,10 +34,13 @@ class _EstoquePageState extends ConsumerState<EstoquePage> {
 
   @override
   void dispose() {
-    final client = ref.read(dataClientProvider);
-    if (client != null && _channel != null) {
-      client.removeChannel(_channel!);
+    final client = _subscribedClient;
+    final channel = _channel;
+    if (client != null && channel != null) {
+      client.removeChannel(channel);
     }
+    _channel = null;
+    _subscribedClient = null;
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -37,7 +48,10 @@ class _EstoquePageState extends ConsumerState<EstoquePage> {
   void _subscribeRealtime() {
     final client = ref.read(dataClientProvider);
     if (client == null) return;
-    _channel = client.channel('estoque-live');
+    // Nome único por instância: reentrar na tela recria o canal com um
+    // nome novo (o `removeChannel` é assíncrono e o `.channel()` com o
+    // mesmo nome devolveria o canal antigo já inscrito).
+    _channel = client.channel('estoque-live-${DateTime.now().microsecondsSinceEpoch}');
     _channel!.onPostgresChanges(
       event: PostgresChangeEvent.all,
       schema: 'public',
@@ -45,6 +59,7 @@ class _EstoquePageState extends ConsumerState<EstoquePage> {
       callback: (_) => ref.invalidate(stockProvider),
     );
     _channel!.subscribe();
+    _subscribedClient = client;
   }
 
   @override
@@ -82,8 +97,15 @@ class _EstoquePageState extends ConsumerState<EstoquePage> {
                     .where((e) => _query.isEmpty || e.name.toLowerCase().contains(_query))
                     .toList();
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text('Nenhum EPI encontrado.', style: TextStyle(color: kMuted)),
+                  // Antes a mesma frase aparecia para "não tem nada
+                  // cadastrado" e para "a busca não achou". O almoxarife
+                  // ficava sem saber se o problema era o estoque ou a
+                  // palavra que ele digitou.
+                  return EmptyRetry(
+                    message: items.isEmpty
+                        ? 'Nenhum EPI cadastrado ainda.'
+                        : 'Nada encontrado para "$_query".',
+                    onRefresh: () async => ref.invalidate(stockProvider),
                   );
                 }
                 return RefreshIndicator(
@@ -100,20 +122,9 @@ class _EstoquePageState extends ConsumerState<EstoquePage> {
               loading: () => const Center(
                 child: CircularProgressIndicator(strokeWidth: 2, color: kIndigo),
               ),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Erro ao carregar o estoque.',
-                          style: TextStyle(color: kRed, fontSize: 13.5)),
-                      const SizedBox(height: 8),
-                      Text('$e', textAlign: TextAlign.center,
-                          style: const TextStyle(color: kMuted, fontSize: 11.5)),
-                    ],
-                  ),
-                ),
+              error: (e, _) => ErrorRetry(
+                message: friendlyDataError(e),
+                onRetry: () => ref.invalidate(stockProvider),
               ),
             ),
           ),
@@ -136,7 +147,18 @@ class _EpiCard extends StatelessWidget {
       byColor.putIfAbsent(v.color, () => []).add(v);
     }
 
+    // Todos os cards eram verdes. Num almoxariffe com 9 produtos na tela, o
+    // verde não diz nada — o que importa é "qual está acabando". O acento
+    // passa a carregar o nível, então dá para varrer a lista sem ler.
+    final total = epi.totalQuantity;
+    final tone = total == 0
+        ? kRed
+        : total <= 10
+            ? kAmber
+            : kGreen;
+
     return AppCard(
+      accent: tone,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -147,11 +169,11 @@ class _EpiCard extends StatelessWidget {
                 height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: kGreen.withValues(alpha: 0.12),
+                  color: tone.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: kGreen.withValues(alpha: 0.25)),
+                  border: Border.all(color: tone.withValues(alpha: 0.25)),
                 ),
-                child: const Icon(Icons.health_and_safety_outlined, color: kGreen, size: 19),
+                child: Icon(Icons.health_and_safety_outlined, color: tone, size: 19),
               ),
               const SizedBox(width: 12),
               Expanded(

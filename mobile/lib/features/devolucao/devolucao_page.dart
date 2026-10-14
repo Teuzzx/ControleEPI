@@ -181,6 +181,9 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
   @override
   Widget build(BuildContext context) {
     final offlineReady = _employee != null && _cart.isNotEmpty;
+    // Fora da lista `children:` — Dart não aceita declaração dentro de
+    // literal de coleção.
+    final proofReady = _photoPath != null && _signaturePath != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -209,12 +212,13 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
                 const SizedBox(height: 8),
                 AppCard(
                   onTap: _pickEmployee,
+                  accent: _employee != null ? kCyan : null,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Row(
                     children: [
                       Icon(
                         _employee == null ? Icons.person_outline : Icons.person,
-                        color: _employee == null ? kMuted : kGreen,
+                        color: _employee == null ? kMuted : kCyan,
                         size: 22,
                       ),
                       const SizedBox(width: 12),
@@ -222,30 +226,22 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
                         child: Text(
                           _employee?.name ?? 'Tocar para selecionar',
                           style: TextStyle(
-                            color: _employee == null ? kMuted : kText,
+                            color: _employee == null ? kSub : kText,
                             fontSize: 13.5,
                             fontWeight: _employee == null ? FontWeight.w400 : FontWeight.w600,
                           ),
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: kIndigo, size: 20),
+                      const Icon(Icons.chevron_right, color: kMuted, size: 20),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    const Text('2. Itens devolvidos',
-                        style: TextStyle(
-                            color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
-                    const Spacer(),
-                    Text('$_totalQty un.',
-                        style: const TextStyle(
-                            color: kSub, fontSize: 12, fontWeight: FontWeight.w600)),
-                  ],
+                StepHeader(
+                  label: 'Itens devolvidos',
+                  done: _cart.isNotEmpty,
+                  detail: _cart.isEmpty ? null : '$_totalQty un.',
                 ),
-                const SizedBox(height: 8),
                 if (_cart.isEmpty)
                   AppCard(
                     onTap: _pickEpi,
@@ -328,20 +324,16 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
                     ),
                   ),
 
-                const SizedBox(height: 12),
-                const Text('3. Foto e assinatura',
-                    style: TextStyle(color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
+                StepHeader(label: 'Foto e assinatura', done: proofReady),
                 AppCard(
                   onTap: _capture,
+                  accent: proofReady ? kGreen : kAmber,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Row(
                     children: [
                       Icon(
-                        _photoPath != null && _signaturePath != null
-                            ? Icons.check_circle
-                            : Icons.camera_alt_outlined,
-                        color: _photoPath != null && _signaturePath != null ? kGreen : kAmber,
+                        proofReady ? Icons.check_circle : Icons.camera_alt_outlined,
+                        color: proofReady ? kGreen : kAmber,
                         size: 22,
                       ),
                       const SizedBox(width: 12),
@@ -350,14 +342,14 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _photoPath != null && _signaturePath != null
+                              proofReady
                                   ? 'Foto e assinatura capturadas'
                                   : 'Capturar foto do EPI e assinatura',
                               style: const TextStyle(
                                   color: kText, fontSize: 13.5, fontWeight: FontWeight.w600),
                             ),
                             Text(
-                              _photoPath != null && _signaturePath != null
+                              proofReady
                                   ? 'Tocar para refazer'
                                   : 'Comprovam a devolução',
                               style: const TextStyle(color: kMuted, fontSize: 11.5),
@@ -365,7 +357,7 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: kAmber, size: 20),
+                      const Icon(Icons.chevron_right, color: kMuted, size: 20),
                     ],
                   ),
                 ),
@@ -390,13 +382,12 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
             ),
           ),
 
-          // ── Rodapé de confirmação ───────────────────────────────────────
-          Container(
+          // ── Rodapé de confirmação ───────────────────────────────────
+          // Camada acima da lista: o vidro aqui mostra a lista passando por
+          // baixo da barra.
+          GlassPanel(
+            topBorder: true,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            decoration: const BoxDecoration(
-              color: kBg,
-              border: Border(top: BorderSide(color: Color(0xFF1E2236))),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -410,25 +401,36 @@ class _DevolucaoPageState extends ConsumerState<DevolucaoPage> {
                           _photoPath == null || _signaturePath == null
                               ? 'Complete a foto e a assinatura.'
                               : 'Pronto para registrar. Sem internet? A operação será salva offline.',
-                          style: const TextStyle(color: kMuted, fontSize: 11.5),
+                          style: const TextStyle(color: kSub, fontSize: 11.5),
                         ),
                       ),
                     ],
                   ),
-                if (offlineReady) const SizedBox(height: 8),
+                if (offlineReady) const SizedBox(height: 10),
                 ElevatedButton.icon(
                   onPressed: _submitting || !offlineReady ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kCyan,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: kCard,
+                    disabledForegroundColor: kMuted,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(kRadius)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: offlineReady ? 8 : 0,
+                    shadowColor: kCyan.withValues(alpha: 0.4),
+                  ),
                   icon: _submitting
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2, color: Colors.black),
                         )
                       : const Icon(Icons.check_circle_outline, size: 20),
                   label: Text(_submitting ? 'Registrando...' : 'Confirmar Devolução'),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 TextButton.icon(
                   onPressed: () => context.go('/home'),
                   icon: const Icon(Icons.arrow_back, size: 16, color: kSub),

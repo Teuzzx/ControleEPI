@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
@@ -19,6 +21,14 @@ class SyncService {
   Box? _failedBox;
   bool _running = false;
 
+  /// Assinatura de conectividade. Antes ela era criada dentro de
+  /// [init] e NUNCA cancelada: cada montagem da HomePage adicionava mais
+  /// um listener, e cada listener guardava um `WidgetRef` já descartado.
+  /// Ao navegar para fora e voltar, o callback disparava com o `ref`
+  /// destruído e o app estourava ("dependencies were used after being
+  /// disposed"). Guardamos a assinatura para poder cancelar.
+  StreamSubscription<List<ConnectivityResult>>? _connSub;
+
   /// Notifica a UI sobre quantas operações estão pendentes.
   final ValueNotifier<int> pendingNotifier = ValueNotifier(0);
   final ValueNotifier<int> failedNotifier = ValueNotifier(0);
@@ -27,17 +37,48 @@ class SyncService {
   /// do período offline") — a tela principal escuta e mostra ao usuário.
   final ValueNotifier<String?> syncNoticeNotifier = ValueNotifier(null);
 
+  bool _initialized = false;
+
   Future<void> init(WidgetRef ref) async {
-    _box = Hive.box(HiveService.pendingOpsBox);
-    _failedBox = Hive.box(HiveService.failedOpsBox);
+    _box ??= Hive.box(HiveService.pendingOpsBox);
+    _failedBox ??= Hive.box(HiveService.failedOpsBox);
     _refreshCounts();
 
-    Connectivity().onConnectivityChanged.listen((_) => processQueue(ref));
+    // Idempotente: evita acumular listeners a cada entrada na HomePage.
+    if (!_initialized) {
+      _initialized = true;
+      _connSub = Connectivity().onConnectivityChanged.listen((_) {
+        processQueue(ref);
+      });
+    }
 
     // Sincroniza também ao iniciar (se já houver sessão).
     if (ref.read(sessionProvider) != null) {
       processQueue(ref);
     }
+  }
+
+  /// Cancela apenas a assinatura de conectividade.
+  ///
+  /// Idempotente e segura para chamar várias vezes. Usada no logout: o
+  /// listener guardava o `ref` da HomePage e chamaria `processQueue`
+  /// apontando para uma sessão já destruída. NÃO descarta os
+  /// ValueNotifier — eles continuam vivos para o próximo login.
+  Future<void> stop() async {
+    await _connSub?.cancel();
+    _connSub = null;
+    _initialized = false;
+  }
+
+  /// Libera tudo de verdade. Só o dono do provider chama isto
+  /// (`ref.onDispose`), no encerramento da sessão.
+  void dispose() {
+    _connSub?.cancel();
+    _connSub = null;
+    _initialized = false;
+    pendingNotifier.dispose();
+    failedNotifier.dispose();
+    syncNoticeNotifier.dispose();
   }
 
   Future<void> enqueue({

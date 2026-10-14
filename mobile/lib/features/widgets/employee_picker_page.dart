@@ -22,6 +22,11 @@ class _EmployeePickerPageState extends ConsumerState<EmployeePickerPage> {
     super.dispose();
   }
 
+  Future<void> _refresh() async {
+    ref.invalidate(employeesProvider);
+    await ref.read(employeesProvider.future);
+  }
+
   @override
   Widget build(BuildContext context) {
     final employees = ref.watch(employeesProvider);
@@ -44,82 +49,78 @@ class _EmployeePickerPageState extends ConsumerState<EmployeePickerPage> {
           Expanded(
             child: employees.when(
               data: (list) {
-                final filtered = list
-                    .where((e) =>
-                        _query.isEmpty ||
-                        e.name.toLowerCase().contains(_query) ||
-                        e.registration.toLowerCase().contains(_query) ||
-                        e.cpf.toLowerCase().contains(_query))
-                    .toList();
+                final filtered = list.where((e) => e.matches(_query)).toList();
+
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text('Nenhum colaborador encontrado.',
-                        style: TextStyle(color: kMuted)),
+                  return EmptyRetry(
+                    message: 'Nenhum colaborador encontrado.',
+                    onRefresh: _refresh,
                   );
                 }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) {
-                    final e = filtered[i];
-                    return AppCard(
-                      onTap: () => Navigator.pop(context, e),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: kIndigo.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(11),
+
+                return RefreshIndicator(
+                  color: kIndigo,
+                  onRefresh: _refresh,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final e = filtered[i];
+                      return AppCard(
+                        onTap: () => Navigator.pop(context, e),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: kIndigo.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                              child: Text(
+                                _initials(e.name),
+                                style: const TextStyle(
+                                    color: kIndigo, fontWeight: FontWeight.w800, fontSize: 13),
+                              ),
                             ),
-                            child: Text(
-                              _initials(e.name),
-                              style: const TextStyle(
-                                color: kIndigo, fontWeight: FontWeight.w800, fontSize: 13),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(e.name,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    e.name,
                                     style: const TextStyle(
-                                        color: kText, fontSize: 14, fontWeight: FontWeight.w600)),
-                                Text(
-                                  [e.role, e.registration, e.cpf]
-                                      .where((s) => s.isNotEmpty)
-                                      .join(' • '),
-                                  style: const TextStyle(color: kMuted, fontSize: 11.5),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                                        color: kText, fontSize: 14, fontWeight: FontWeight.w600),
+                                  ),
+                                  Text(
+                                    [e.role, e.registration, e.cpf]
+                                        .where((s) => s.isNotEmpty)
+                                        .join(' • '),
+                                    style: const TextStyle(color: kMuted, fontSize: 11.5),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const Icon(Icons.chevron_right, color: kIndigo),
-                        ],
-                      ),
-                    );
-                  },
+                            const Icon(Icons.chevron_right, color: kIndigo),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
               loading: () => const Center(
                 child: CircularProgressIndicator(strokeWidth: 2, color: kIndigo),
               ),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Erro ao carregar colaboradores.\n$e',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: kMuted, fontSize: 12.5),
-                  ),
-                ),
+              error: (e, _) => ErrorRetry(
+                message: friendlyDataError(e),
+                onRetry: () => ref.invalidate(employeesProvider),
               ),
             ),
           ),
@@ -128,8 +129,11 @@ class _EmployeePickerPageState extends ConsumerState<EmployeePickerPage> {
     );
   }
 
+  /// Iniciais para o avatar. Antes, um nome vazio/vazio-espaços gerava
+  /// `p[0]` de uma string vazia e quebrava o layout do avatar.
   String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
   }

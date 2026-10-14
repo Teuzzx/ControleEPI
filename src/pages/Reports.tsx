@@ -3,8 +3,6 @@ import { FileText, Download, FileSpreadsheet, CheckCircle2, Package, ArrowLeftRi
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 import { useSupabaseData } from '../hooks/useSupabaseData'
 import type { Epi, Movement, Employee } from '../data/mock'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 const REPORT_TYPES = [
   { id: 'stock',         label: 'Estoque Atual',          icon: '📦', desc: 'Situação atual de todos os EPIs', color: '#6366F1' },
@@ -189,7 +187,20 @@ function loadLogoDataUrl(): Promise<string | null> {
   })
 }
 
-function generatePDF(filename: string, title: string, periodLabel: string, headers: string[], rows: string[][], logoDataUrl: string | null) {
+/**
+ * Gera o PDF.
+ *
+ * `jspdf` + `jspdf-autotable` somam ~1 MB minificados e só são usados
+ * quando o usuário clica em "Gerar PDF". Importados estaticamente, eles
+ * entravam no chunk principal e eram baixados por TODO usuário que
+ * abria o sistema — inclusive o almoxarife, que nunca exporta relatório.
+ * O import dinâmico baixa a biblioteca só no momento do clique.
+ */
+async function generatePDF(filename: string, title: string, periodLabel: string, headers: string[], rows: string[][], logoDataUrl: string | null) {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dateStr = now.toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })
@@ -315,6 +326,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState('stock')
   const [period, setPeriod] = useState('month')
   const [generating, setGenerating] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const currentType = REPORT_TYPES.find((r) => r.id === selectedReport) ?? REPORT_TYPES[0]
   const reportData = useMemo(
@@ -336,6 +348,7 @@ export default function Reports() {
 
   const handleGenerate = async (format: 'pdf' | 'csv') => {
     setGenerating(true)
+    setExportError('')
     try {
       const now = new Date()
       const dateStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-')
@@ -343,10 +356,15 @@ export default function Reports() {
       const base = `${selectedReport}-${dateStr}`
       if (format === 'pdf') {
         const logo = await loadLogoDataUrl()
-        generatePDF(base, title, PERIOD_LABEL[period], headers, rows, logo)
+        await generatePDF(base, title, PERIOD_LABEL[period], headers, rows, logo)
       } else {
         generateCSV(base, headers, rows)
       }
+    } catch (err) {
+      setExportError(
+        'Não foi possível gerar o arquivo. Verifique a conexão e tente novamente.',
+      )
+      console.error('Falha ao gerar relatório:', err)
     } finally {
       setGenerating(false)
     }
@@ -362,7 +380,7 @@ export default function Reports() {
   ]
 
   return (
-    <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20, animation: 'fade-up 0.5s ease both' }}>
+    <div className="page-enter" style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -383,7 +401,22 @@ export default function Reports() {
         </div>
 
         {/* Export actions */}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexDirection: 'column', alignItems: 'flex-end' }}>
+          {exportError && (
+            <div
+              role="alert"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.25)',
+                borderRadius: 9, padding: '7px 11px', color: '#FB7185',
+                fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              <AlertTriangle size={13} />
+              {exportError}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => handleGenerate('csv')}
             style={{
@@ -417,6 +450,7 @@ export default function Reports() {
               <><FileText size={14} /> Gerar PDF</>
             )}
           </button>
+          </div>
         </div>
       </div>
 

@@ -1,3 +1,5 @@
+import 'parsing.dart';
+
 /// Item do carrinho de saída/devolução.
 class CartItem {
   final int epiId;
@@ -31,12 +33,12 @@ class CartItem {
       };
 
   factory CartItem.fromMap(Map<String, dynamic> m) => CartItem(
-        epiId: (m['epi_id'] as num).toInt(),
-        epiName: m['epi_name'] as String? ?? '',
-        color: m['color'] as String? ?? '',
-        size: m['size'] as String? ?? '',
-        quantity: (m['quantity'] as num).toInt(),
-        state: m['state'] as String? ?? 'Novo',
-        observation: m['observation'] as String? ?? '',
+        epiId: asInt(m['epi_id']),
+        epiName: asString(m['epi_name']),
+        color: asString(m['color']),
+        size: asString(m['size']),
+        quantity: asInt(m['quantity']),
+        state: m['state'] == null ? 'Novo' : asString(m['state']),
+        observation: asString(m['observation']),
       );
 }

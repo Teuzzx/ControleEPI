@@ -1,5 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { supabase, supabaseUrl, supabaseAnonKey } from './supabase'
+import {
+  supabase,
+  effectiveSupabaseUrl,
+  effectiveSupabaseAnonKey,
+  isSupabaseConfigured,
+  supabaseConfigError,
+} from './supabase'
 
 // Mesma opção do client raiz: sem GoTrueClient (login é via RPC), evita
 // colisão de storage entre instâncias e o aviso "Multiple GoTrueClient instances".
@@ -51,7 +57,11 @@ function tokenHeader(token?: string): Record<string, string> {
 export function getAuthClient(): SupabaseClient {
   if (authedClient) return authedClient
   const session = loadSession()
-  authedClient = createClient(supabaseUrl, supabaseAnonKey, {
+  // Usa as chaves *efetivas*: com o build sem `.env` elas caem no
+  // placeholder e o app ainda renderiza (em vez de `createClient('')`
+  // estourar "supabaseUrl is required" dentro de um useState e deixar a
+  // tela em branco).
+  authedClient = createClient(effectiveSupabaseUrl, effectiveSupabaseAnonKey, {
     ...clientOptions,
     global: { headers: tokenHeader(session?.token) },
   })
@@ -76,6 +86,12 @@ export function createSessionClient(url: string, anonKey: string, token: string)
  * listado via anon key. Retorna um token de sessão válido por 12h.
  */
 export async function login(email: string, password: string): Promise<SessionUser> {
+  // Falha de configuração é tratada antes de qualquer chamada de rede, para
+  // o usuário receber a causa real em vez de um erro genérico de rede.
+  if (!isSupabaseConfigured) {
+    throw new Error(supabaseConfigError)
+  }
+
   // Timeout de 20s: sem isso, em redes ruins/blocked o botão fica girando para sempre.
   const TIMEOUT_MS = 20000
   let timedOut = false

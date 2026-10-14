@@ -3,3 +3,12 @@ dist
 *.zip
 .env
 .env.*
+
+# Chave de assinatura do app. Quem tem isto assina o APK para sempre;
+# quem nao tem, nunca consegue atualizar o app dos outros usuarios.
+*.keystore
+*.jks
+key.properties
+
+# Relatorio de problemas do Gradle (build artifact)
+mobile/android/build/

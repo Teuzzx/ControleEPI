@@ -152,7 +152,7 @@ export default function Overview({ onNavigate }: { onNavigate?: (page: Page) => 
   const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24, animation: 'fade-up 0.5s ease both' }}>
+    <div className="page-enter" style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Status bar */}
       <div style={{

@@ -87,7 +87,7 @@ export default function Entries() {
   }
 
   return (
-    <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
+    <div className="page-enter" style={{ padding: '24px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>Entradas de Estoque</h2>

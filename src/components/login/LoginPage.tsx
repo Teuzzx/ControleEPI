@@ -1,9 +1,11 @@
 import { useState, type FormEvent, type MouseEvent } from 'react'
 import {
   Eye, EyeOff, Mail, Lock, ArrowRight, ArrowLeft,
-  Loader2, AlertCircle, CheckCircle2, ShieldCheck, KeyRound, Send,
+  Loader2, AlertCircle, CheckCircle2, KeyRound, Send,
+  ClipboardCheck, CloudOff, Network,
 } from 'lucide-react'
 import { login, requestPasswordReset, resetPasswordWithCode, type SessionUser } from '../../lib/auth'
+import { isSupabaseConfigured, supabaseConfigError } from '../../lib/supabase'
 
 interface Props {
   onLogin: (user: SessionUser) => void
@@ -11,8 +13,12 @@ interface Props {
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
 
-const BG_PRIMARY = 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=1600&q=80'
-const BG_FALLBACK = 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1600&q=80'
+// A foto anterior era uma sala de estar — sofá, planta e lustre. Numa tela
+// de EPI isso não significa nada. Estas duas mostram gente vestindo
+// capacete e colete reflective, que é literalmente o produto em uso.
+// #1 (canteiro) também tem o tom frio que segura a paleta índigo.
+const BG_PRIMARY = 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1600&q=80'
+const BG_FALLBACK = 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=1600&q=80'
 
 const C = {
   bg: '#09090F',
@@ -186,12 +192,12 @@ export default function LoginPage({ onLogin }: Props) {
           src={bgFallback ? BG_FALLBACK : BG_PRIMARY}
           alt=""
           onError={() => setBgFallback(true)}
+          className="login-wallpaper"
           style={{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'center',
-            animation: 'ken-burns 30s ease-in-out infinite alternate',
           }}
         />
         {/* Gradiente escuro ~80% para leitura */}
@@ -236,7 +242,8 @@ export default function LoginPage({ onLogin }: Props) {
           padding: '48px 24px',
         }}
       >
-        <div style={{ width: '100%', maxWidth: 430 }}>
+        <div className="login-split">
+        <div style={{ width: '100%', maxWidth: 430, flexShrink: 0 }}>
           {/* ── Cabeçalho ── */}
           <header style={{ textAlign: 'center', marginBottom: 34 }}>
             <div
@@ -246,11 +253,14 @@ export default function LoginPage({ onLogin }: Props) {
                 height: 96,
                 margin: '0 auto 22px',
                 borderRadius: 30,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
+                // O logo da Norion é um "N" preto sobre fundo claro. Num
+                // login escuro ele simplesmente sumia. A base clara é o que
+                // faz a marca existir aqui.
+                background: '#F4F5FB',
+                border: '1px solid rgba(255,255,255,0.9)',
                 backdropFilter: 'blur(18px)',
                 WebkitBackdropFilter: 'blur(18px)',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.6)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -262,10 +272,10 @@ export default function LoginPage({ onLogin }: Props) {
                 src="/logo-norion.png"
                 alt="Norion"
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  borderRadius: 30,
+                  width: '76%',
+                  height: '76%',
+                  objectFit: 'contain',
+                  borderRadius: 22,
                 }}
               />
             </div>
@@ -296,7 +306,7 @@ export default function LoginPage({ onLogin }: Props) {
                 animationDelay: '0.16s',
               }}
             >
-              Sistema Inteligente de Gestão de Equipamentos de Proteção Individual
+              Entrega, devolução e estoque de EPI, com prova de quem recebeu.
             </p>
           </header>
 
@@ -350,6 +360,30 @@ export default function LoginPage({ onLogin }: Props) {
                     Faça login para continuar utilizando o sistema.
                   </p>
                 </div>
+
+                {/* Build sem credenciais: antes isso derrubava a tela inteira
+                    em branco no primeiro render. Agora o app carrega e explica
+                    o que precisa ser corrigido. */}
+                {!isSupabaseConfigured && (
+                  <div
+                    role="alert"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      background: 'rgba(245,158,11,0.08)',
+                      border: '1px solid rgba(245,158,11,0.28)',
+                      borderRadius: 14,
+                      padding: '12px 16px',
+                      marginBottom: 16,
+                    }}
+                  >
+                    <AlertCircle size={16} color="#FBBF24" strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span style={{ fontSize: 12.5, color: '#FCD34D', lineHeight: 1.5 }}>
+                      {supabaseConfigError}
+                    </span>
+                  </div>
+                )}
 
                 {infoMsg && (
                   <div
@@ -833,26 +867,37 @@ export default function LoginPage({ onLogin }: Props) {
               animationDelay: '0.38s',
             }}
           >
+            {/* Sem escudo: "escudo = segurança" é clichê e não descreve nada
+                aqui. A garantia real é técnica e concreta — sessão no banco,
+                token por header e RLS — então mostramos o fato, não o símbolo. */}
             <div
-              className="glow-pulse-soft"
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 16,
-                background: 'rgba(109,94,248,0.12)',
-                border: '1px solid rgba(109,94,248,0.3)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: 8,
+                padding: '7px 13px',
+                borderRadius: 999,
+                background: 'rgba(109,94,248,0.08)',
+                border: '1px solid rgba(109,94,248,0.26)',
               }}
             >
-              <ShieldCheck size={20} color="#8B7CFF" strokeWidth={2} />
+              <Lock size={13} color="#8B7CFF" strokeWidth={2} aria-hidden="true" />
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: '#8B7CFF',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Sessão verificada no servidor
+              </span>
             </div>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: '#E4E4EF' }}>
-              Seus dados estão protegidos
+              A senha nunca é enviada nem guardada no navegador
             </div>
             <div style={{ fontSize: 11, color: '#6E6E84', letterSpacing: '0.03em' }}>
-              Comunicação criptografada • Login seguro • Ambiente protegido
+              Token de sessão com expiração de 12h • acesso por empresa
             </div>
             <div
               style={{
@@ -867,6 +912,76 @@ export default function LoginPage({ onLogin }: Props) {
               Norion • Tecnologia e Inovação
             </div>
           </footer>
+        </div>
+
+        {/* Painel lateral. Em tela larga a coluna do form deixa um vazio
+            enorme; em vez de preencher com enfeite, mostramos o produto
+            funcionando: o que ele faz antes mesmo de você abrir o painel. */}
+        <aside
+          className="login-aside blur-reveal"
+          style={{ animationDelay: '0.32s' }}
+        >
+          {[
+            {
+              key: 'out',
+              title: 'O registro nasce no celular',
+              body: 'O almoxarife anota a entrega na hora, no chão de fábrica. Foto e assinatura entram junto.',
+            },
+            {
+              key: 'off',
+              title: 'Funciona sem internet',
+              body: 'Sem rede, cada registro fica na fila do aparelho e sobe sozinho quando o sinal volta.',
+            },
+            {
+              key: 'net',
+              title: 'Matriz e filiais no mesmo lugar',
+              body: 'A matriz distribui estoque para a rede e enxerga tudo consolidado num painel só.',
+            },
+          ].map((item, i) => (
+            <div
+              key={item.key}
+              style={{
+                display: 'flex',
+                gap: 16,
+                marginBottom: 28,
+                opacity: 0,
+                animation: `blur-reveal 0.6s cubic-bezier(0.16,1,0.3,1) ${0.4 + i * 0.09}s forwards`,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  flexShrink: 0,
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(109,94,248,0.12)',
+                  border: '1px solid rgba(109,94,248,0.24)',
+                }}
+              >
+                {item.key === 'out' && <ClipboardCheck size={18} color="#8B7CFF" strokeWidth={2} />}
+                {item.key === 'off' && <CloudOff size={18} color="#8B7CFF" strokeWidth={2} />}
+                {item.key === 'net' && <Network size={18} color="#8B7CFF" strokeWidth={2} />}
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 14.5,
+                    fontWeight: 700,
+                    color: '#FFFFFF',
+                    marginBottom: 5,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {item.title}
+                </div>
+                <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>{item.body}</div>
+              </div>
+            </div>
+          ))}
+        </aside>
         </div>
       </div>
     </div>

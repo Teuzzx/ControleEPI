@@ -200,8 +200,8 @@ export default function Stock() {
     const q = search.toLowerCase()
     const matchSearch =
       !q ||
-      e.name.toLowerCase().includes(q) ||
-      e.manufacturer.toLowerCase().includes(q)
+      (e.name ?? "").toLowerCase().includes(q) ||
+      (e.manufacturer ?? "").toLowerCase().includes(q)
     const matchCat = catFilter === "all" || e.category === catFilter
     const matchStatus = statusFilter === "all" || e.status === statusFilter
     return matchSearch && matchCat && matchStatus
@@ -214,7 +214,7 @@ export default function Stock() {
   }
 
   return (
-    <div style={{ padding: "24px 28px", animation: "fade-up 0.5s ease both" }}>
+    <div className="page-enter" style={{ padding: "24px 28px" }}>
       {/* Header */}
       <div
         style={{

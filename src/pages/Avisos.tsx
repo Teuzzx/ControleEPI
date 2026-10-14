@@ -122,7 +122,7 @@ export default function Avisos() {
   }
 
   return (
-    <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
+    <div className="page-enter" style={{ padding: '24px 28px' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>

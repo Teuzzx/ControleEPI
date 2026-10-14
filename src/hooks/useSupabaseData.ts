@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { createCompanyClient } from "../lib/supabase"
 import { useDataClient } from "../lib/clientContext"
+import { str, num, rows } from "../lib/normalize"
 import type {
   Employee,
   Department,
@@ -219,13 +220,13 @@ export function useSupabaseData() {
       return
     }
 
-    const dbDepartments = (depRes.data ?? []) as DbDepartment[]
-    const dbCategories = (catsRes.data ?? []) as DbCategory[]
-    const dbEmployees = (empsRes.data ?? []) as DbEmployee[]
-    const dbEpis = (episRes.data ?? []) as DbEpi[]
-    const dbVariants = (varsRes.data ?? []) as DbVariant[]
-    const dbMovements = (movsRes.data ?? []) as DbMovement[]
-    const dbEntries = (entriesRes.data ?? []) as DbStockEntry[]
+    const dbDepartments = rows(depRes.data) as DbDepartment[]
+    const dbCategories = rows(catsRes.data) as DbCategory[]
+    const dbEmployees = rows(empsRes.data) as DbEmployee[]
+    const dbEpis = rows(episRes.data) as DbEpi[]
+    const dbVariants = rows(varsRes.data) as DbVariant[]
+    const dbMovements = rows(movsRes.data) as DbMovement[]
+    const dbEntries = rows(entriesRes.data) as DbStockEntry[]
 
     const departmentById = new Map(dbDepartments.map((t) => [t.id, t]))
     const categoryById = new Map(dbCategories.map((c) => [c.id, c]))
@@ -238,105 +239,105 @@ export function useSupabaseData() {
 
     const mappedDepartments: Department[] = dbDepartments.map((t) => ({
       id: t.id,
-      name: t.name,
-      description: t.description,
-      color: t.color,
+      name: str(t.name),
+      description: str(t.description),
+      color: str(t.color) || "#6366F1",
       memberCount: dbEmployees.filter((e) => e.department_id === t.id).length,
     }))
 
     const mappedCategories: Category[] = dbCategories.map((c) => ({
       id: c.id,
-      name: c.name,
-      description: c.description,
-      icon: c.icon,
-      color: c.color,
+      name: str(c.name),
+      description: str(c.description),
+      icon: str(c.icon) || "📦",
+      color: str(c.color) || "#6366F1",
       itemCount: dbEpis.filter((e) => e.category_id === c.id).length,
     }))
 
     const mappedEmployees: Employee[] = dbEmployees.map((e) => ({
       id: e.id,
-      name: e.name,
-      cpf: e.cpf,
-      phone: e.phone,
-      registration: e.registration,
-      role: e.role,
+      name: str(e.name),
+      cpf: str(e.cpf),
+      phone: str(e.phone),
+      registration: str(e.registration),
+      role: str(e.role),
       team:
         e.department_id != null
-          ? (departmentById.get(e.department_id)?.name ?? "")
+          ? str(departmentById.get(e.department_id)?.name)
           : "",
-      sector: e.sector,
-      company: e.company,
-      admissionDate: formatDate(e.admission_date),
-      status: e.status,
-      notes: e.notes || undefined,
-      avatar: e.avatar || undefined,
+      sector: str(e.sector),
+      company: str(e.company),
+      admissionDate: formatDate(str(e.admission_date)),
+      status: e.status === "Inativo" ? "Inativo" : "Ativo",
+      notes: str(e.notes) || undefined,
+      avatar: str(e.avatar) || undefined,
     }))
 
     const mappedEpis: Epi[] = dbEpis.map((e) => {
       const variants = (variantsByEpi.get(e.id) ?? []).map((v) => ({
         id: String(v.id),
-        color: v.color,
-        size: v.size,
-        quantity: v.quantity,
-        minQuantity: v.min_quantity,
+        color: str(v.color),
+        size: str(v.size),
+        quantity: num(v.quantity),
+        minQuantity: num(v.min_quantity),
       }))
       const variantSum = variants.reduce((s, v) => s + v.quantity, 0)
       return {
         id: e.id,
-        name: e.name,
+        name: str(e.name),
         category:
           e.category_id != null
-            ? (categoryById.get(e.category_id)?.name ?? "")
+            ? str(categoryById.get(e.category_id)?.name)
             : "",
-        subcategory: e.subcategory,
-        manufacturer: e.manufacturer,
-        supplier: e.supplier,
-        description: e.description,
-        caNumber: e.ca_number || undefined,
-        caExpiry: e.ca_expiry || undefined,
-        batchNumber: e.batch_number,
-        manufacturingDate: formatDate(e.manufacturing_date),
-        totalQuantity: variants.length > 0 ? variantSum : e.total_quantity,
-        minQuantity: e.min_quantity,
-        location: e.location,
+        subcategory: str(e.subcategory),
+        manufacturer: str(e.manufacturer),
+        supplier: str(e.supplier),
+        description: str(e.description),
+        caNumber: str(e.ca_number) || undefined,
+        caExpiry: str(e.ca_expiry) || undefined,
+        batchNumber: str(e.batch_number),
+        manufacturingDate: formatDate(str(e.manufacturing_date)),
+        totalQuantity: variants.length > 0 ? variantSum : num(e.total_quantity),
+        minQuantity: num(e.min_quantity),
+        location: str(e.location),
         status: computeStatus(
-          variants.length > 0 ? variantSum : e.total_quantity,
-          e.min_quantity,
+          variants.length > 0 ? variantSum : num(e.total_quantity),
+          num(e.min_quantity),
         ),
         variants,
-        notes: e.notes || undefined,
+        notes: str(e.notes) || undefined,
       }
     })
 
     const mappedMovements: Movement[] = dbMovements.map((m) => ({
       id: m.id,
       type: m.type,
-      employee: m.employee_name ?? "",
-      epi: m.epi_name ?? "",
-      quantity: m.quantity,
-      date: formatDateTime(m.created_at),
-      operator: m.operator ?? "",
-      company: m.company_name || undefined,
-      notes: m.notes || undefined,
-      color: m.color || undefined,
-      size: m.size || undefined,
-      cartId: m.cart_id || undefined,
-      photoUrl: m.photo_url || undefined,
-      signatureUrl: m.signature_url || undefined,
+      employee: str(m.employee_name),
+      epi: str(m.epi_name),
+      quantity: num(m.quantity),
+      date: formatDateTime(str(m.created_at)),
+      operator: str(m.operator),
+      company: str(m.company_name) || undefined,
+      notes: str(m.notes) || undefined,
+      color: str(m.color) || undefined,
+      size: str(m.size) || undefined,
+      cartId: str(m.cart_id) || undefined,
+      photoUrl: str(m.photo_url) || undefined,
+      signatureUrl: str(m.signature_url) || undefined,
       offlineCreated: m.offline_created === true,
     }))
 
     const mappedEntries: StockEntry[] = dbEntries.map((e) => ({
       id: e.id,
-      epi: e.epi_name,
-      manufacturer: e.manufacturer,
-      supplier: e.supplier,
-      batch: e.batch,
-      date: formatDateTime(e.created_at),
-      quantity: e.quantity,
-      color: e.color,
-      size: e.size,
-      notes: e.notes || undefined,
+      epi: str(e.epi_name),
+      manufacturer: str(e.manufacturer),
+      supplier: str(e.supplier),
+      batch: str(e.batch),
+      date: formatDateTime(str(e.created_at)),
+      quantity: num(e.quantity),
+      color: str(e.color),
+      size: str(e.size),
+      notes: str(e.notes) || undefined,
     }))
 
     const now = new Date()
@@ -378,7 +379,14 @@ export function useSupabaseData() {
     setEpis(mappedEpis)
     setMovements(mappedMovements)
     setEntries(mappedEntries)
-    setNotifications((notifRes.data ?? []) as Notification[])
+    setNotifications(rows(notifRes.data).map((n) => ({
+      ...n,
+      title: str(n.title),
+      message: str(n.message),
+      type: str(n.type),
+      read: n.read === true,
+      created_at: str(n.created_at),
+    })))
     setChartData({ stockByCategory, movementsOverTime, stockTrend })
     setLoading(false)
   }, [client])
@@ -452,7 +460,7 @@ export function useSupabaseData() {
       const departmentId =
         departments.find((t) => t.name === data.department)?.id ?? null
       const { error } = await client.from("employees").insert({
-        name: data.name,
+        name: data.name.trim(),
         cpf,
         phone: data.phone || "",
         registration,
@@ -461,7 +469,7 @@ export function useSupabaseData() {
         sector: data.sector || "",
         company: data.company || "Norion",
         admission_date: data.admissionDate || null,
-        status: data.status || "Ativo",
+        status: data.status === "Inativo" ? "Inativo" : "Ativo",
       })
       if (error) throw new Error(error.message)
       await refresh()
@@ -525,7 +533,7 @@ export function useSupabaseData() {
       const { error } = await client
         .from("employees")
         .update({
-          name: data.name,
+          name: data.name.trim(),
           cpf,
           phone: data.phone || "",
           registration,
@@ -534,7 +542,7 @@ export function useSupabaseData() {
           sector: data.sector || "",
           company: data.company || "Norion",
           admission_date: data.admissionDate || null,
-          status: data.status || "Ativo",
+          status: data.status === "Inativo" ? "Inativo" : "Ativo",
         })
         .eq("id", id)
       if (error) throw new Error(error.message)

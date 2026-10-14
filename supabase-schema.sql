@@ -3,8 +3,12 @@
 -- Database Schema for Supabase
 -- ============================================================
 
--- 1. TEAMS (Equipes)
-CREATE TABLE teams (
+-- 1. DEPARTMENTS (Departamentos)
+-- Nome canônico: `departments` — é o que o app usa em TODAS as queries
+-- (useSupabaseData.ts, Employees.tsx, Departments.tsx) e o que a RLS da
+-- migration 0001 referencia. O antigo `teams`/`team_id` é reconciliado
+-- pela migration 0012 em bancos já existentes.
+create table departments (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   description TEXT DEFAULT '',
@@ -32,7 +36,9 @@ CREATE TABLE employees (
   phone TEXT DEFAULT '',
   registration TEXT NOT NULL UNIQUE,
   role TEXT DEFAULT '',
-  team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL,
+  -- Coluna canônica: `department_id` (é o nome que o app lê e escreve).
+  -- `team_id` foi o nome original e é reconciliado pela migration 0012.
+  department_id BIGINT REFERENCES departments(id) ON DELETE SET NULL,
   sector TEXT DEFAULT '',
   company TEXT DEFAULT 'Norion',
   admission_date DATE DEFAULT CURRENT_DATE,
@@ -107,7 +113,7 @@ CREATE TABLE stock_entries (
 -- ============================================================
 -- INDEXES
 -- ============================================================
-CREATE INDEX idx_employees_team_id ON employees(team_id);
+CREATE INDEX idx_employees_department_id ON employees(department_id);
 CREATE INDEX idx_employees_status ON employees(status);
 CREATE INDEX idx_epis_category_id ON epis(category_id);
 CREATE INDEX idx_epi_variants_epi_id ON epi_variants(epi_id);
@@ -121,8 +127,8 @@ CREATE INDEX idx_stock_entries_epi_id ON stock_entries(epi_id);
 -- SEED DATA
 -- ============================================================
 
--- Teams
-INSERT INTO teams (name, description, color) VALUES
+-- Departments
+INSERT INTO departments (name, description, color) VALUES
   ('Operações', 'Equipe de operações e campo', '#6366F1'),
   ('Manutenção', 'Equipe de manutenção elétrica e mecânica', '#22D3EE'),
   ('Logística', 'Movimentação e transporte de materiais', '#F59E0B'),
@@ -141,7 +147,7 @@ INSERT INTO categories (name, description, icon, color) VALUES
   ('Proteção contra Quedas', 'Cintos, talabartes e linhas de vida', '🔗', '#F97316');
 
 -- Employees
-INSERT INTO employees (name, cpf, phone, registration, role, team_id, sector, company, admission_date, status) VALUES
+INSERT INTO employees (name, cpf, phone, registration, role, department_id, sector, company, admission_date, status) VALUES
   ('Carlos Eduardo Mendes', '423.891.670-09', '(11) 98542-3317', 'MAT-00124', 'Operador de Máquinas', 1, 'Produção', 'Norion', '2021-03-15', 'Ativo'),
   ('Juliana Ferreira Costa', '518.234.790-51', '(11) 97611-8824', 'MAT-00127', 'Técnico de Segurança', 4, 'SSO', 'Norion', '2020-07-01', 'Ativo'),
   ('Rafael Souza Almeida', '742.035.180-72', '(21) 99827-4419', 'MAT-00131', 'Eletricista', 2, 'Manutenção', 'Norion', '2022-01-10', 'Ativo'),
@@ -254,7 +260,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_teams_updated_at BEFORE UPDATE ON teams FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_departments_updated_at BEFORE UPDATE ON departments FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_categories_updated_at BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_employees_updated_at BEFORE UPDATE ON employees FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_epis_updated_at BEFORE UPDATE ON epis FOR EACH ROW EXECUTE FUNCTION update_updated_at();

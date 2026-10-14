@@ -190,6 +190,9 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
   @override
   Widget build(BuildContext context) {
     final offlineReady = _employee != null && _cart.isNotEmpty;
+    // Declarado aqui, e não dentro da lista `children:` — Dart não aceita
+    // declaração dentro de literal de coleção.
+    final proofReady = _photoPath != null && _signaturePath != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -214,11 +217,10 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               children: [
                 // ── Colaborador ──────────────────────────────────────────
-                const Text('1. Colaborador',
-                    style: TextStyle(color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
+                StepHeader(label: 'Colaborador', done: _employee != null),
                 AppCard(
                   onTap: _pickEmployee,
+                  accent: _employee != null ? kGreen : null,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Row(
                     children: [
@@ -232,31 +234,24 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                         child: Text(
                           _employee?.name ?? 'Tocar para selecionar',
                           style: TextStyle(
-                            color: _employee == null ? kMuted : kText,
+                            color: _employee == null ? kSub : kText,
                             fontSize: 13.5,
-                            fontWeight: _employee == null ? FontWeight.w400 : FontWeight.w600,
+                            fontWeight:
+                                _employee == null ? FontWeight.w400 : FontWeight.w600,
                           ),
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: kIndigo, size: 20),
+                      const Icon(Icons.chevron_right, color: kMuted, size: 20),
                     ],
                   ),
                 ),
 
                 // ── Itens ────────────────────────────────────────────────
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    const Text('2. Itens',
-                        style: TextStyle(
-                            color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
-                    const Spacer(),
-                    Text('$_totalQty un.',
-                        style: const TextStyle(
-                            color: kSub, fontSize: 12, fontWeight: FontWeight.w600)),
-                  ],
+                StepHeader(
+                  label: 'Itens',
+                  done: _cart.isNotEmpty,
+                  detail: _cart.isEmpty ? null : '$_totalQty un.',
                 ),
-                const SizedBox(height: 8),
                 if (_cart.isEmpty)
                   AppCard(
                     onTap: _pickEpi,
@@ -333,20 +328,19 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                   ),
 
                 // ── Foto + assinatura ─────────────────────────────────────
-                const SizedBox(height: 12),
-                const Text('3. Foto do colaborador e assinatura',
-                    style: TextStyle(color: kMuted, fontSize: 12, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
+                StepHeader(
+                  label: 'Foto e assinatura',
+                  done: proofReady,
+                ),
                 AppCard(
                   onTap: _capture,
+                  accent: proofReady ? kGreen : kAmber,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Row(
                     children: [
                       Icon(
-                        _photoPath != null && _signaturePath != null
-                            ? Icons.check_circle
-                            : Icons.camera_alt_outlined,
-                        color: _photoPath != null && _signaturePath != null ? kGreen : kAmber,
+                        proofReady ? Icons.check_circle : Icons.camera_alt_outlined,
+                        color: proofReady ? kGreen : kAmber,
                         size: 22,
                       ),
                       const SizedBox(width: 12),
@@ -355,14 +349,14 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _photoPath != null && _signaturePath != null
-                                  ? 'Foto do colaborador e assinatura capturadas'
-                                  : 'Capturar foto do colaborador e assinatura',
+                              proofReady
+                                  ? 'Foto e assinatura capturadas'
+                                  : 'Capturar foto e assinatura',
                               style: const TextStyle(
                                   color: kText, fontSize: 13.5, fontWeight: FontWeight.w600),
                             ),
                             Text(
-                              _photoPath != null && _signaturePath != null
+                              proofReady
                                   ? 'Tocar para refazer'
                                   : 'Ficam salvas no registro da saída',
                               style: const TextStyle(color: kMuted, fontSize: 11.5),
@@ -370,7 +364,7 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: kAmber, size: 20),
+                      const Icon(Icons.chevron_right, color: kMuted, size: 20),
                     ],
                   ),
                 ),
@@ -378,13 +372,13 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
             ),
           ),
 
-          // ── Rodapé de confirmação ───────────────────────────────────────
-          Container(
+          // ── Rodapé de confirmação ───────────────────────────────────
+          // Esta barra fica ACIMA da lista, que rola por baixo dela. É
+          // exatamente onde o vidro paga: a lista passa por trás e você vê
+          // que tem mais conteúdo. Abaixo dela não há nada para borrar.
+          GlassPanel(
+            topBorder: true,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            decoration: const BoxDecoration(
-              color: kBg,
-              border: Border(top: BorderSide(color: Color(0xFF1E2236))),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -398,14 +392,24 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                           _photoPath == null || _signaturePath == null
                               ? 'Complete a foto e a assinatura.'
                               : 'Pronto para registrar. Sem internet? A operação será salva offline.',
-                          style: const TextStyle(color: kMuted, fontSize: 11.5),
+                          style: const TextStyle(color: kSub, fontSize: 11.5),
                         ),
                       ),
                     ],
                   ),
-                if (offlineReady) const SizedBox(height: 8),
+                if (offlineReady) const SizedBox(height: 10),
                 ElevatedButton.icon(
                   onPressed: _submitting || !offlineReady ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kIndigo,
+                    disabledBackgroundColor: kCard,
+                    disabledForegroundColor: kMuted,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(kRadius)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: offlineReady ? 8 : 0,
+                    shadowColor: kIndigo.withValues(alpha: 0.4),
+                  ),
                   icon: _submitting
                       ? const SizedBox(
                           width: 16,
@@ -416,7 +420,7 @@ class _SaidaPageState extends ConsumerState<SaidaPage> {
                       : const Icon(Icons.check_circle_outline, size: 20),
                   label: Text(_submitting ? 'Registrando...' : 'Confirmar Saída'),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 TextButton.icon(
                   onPressed: () => context.go('/home'),
                   icon: const Icon(Icons.arrow_back, size: 16, color: kSub),

@@ -1,19 +1,27 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import LoginPage from './components/login/LoginPage'
 import Sidebar, { type Page } from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
-import Overview from './pages/Overview'
-import Employees from './pages/Employees'
-import Stock from './pages/Stock'
-import Departments from './pages/Departments'
-import Movements from './pages/Movements'
-import Reports from './pages/Reports'
-import Categories from './pages/Categories'
-import Entries from './pages/Entries'
-import Companies from './pages/Companies'
-import Distribution from './pages/Distribution'
-import Avisos from './pages/Avisos'
-import Settings from './pages/Settings'
+
+// Cada página é um chunk separado (code-splitting por rota).
+//
+// Antes as 12 páginas eram importadas estaticamente: quem abria o sistema
+// baixava também a biblioteca de gráficos do Dashboard e a de PDF dos
+// Relatórios, mesmo nunca acessando nenhuma das duas. Agora o usuário
+// carrega primeiro só o shell + o Dashboard, e cada página chega quando
+// é aberta.
+const Overview = lazy(() => import('./pages/Overview'))
+const Employees = lazy(() => import('./pages/Employees'))
+const Stock = lazy(() => import('./pages/Stock'))
+const Departments = lazy(() => import('./pages/Departments'))
+const Movements = lazy(() => import('./pages/Movements'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Categories = lazy(() => import('./pages/Categories'))
+const Entries = lazy(() => import('./pages/Entries'))
+const Companies = lazy(() => import('./pages/Companies'))
+const Distribution = lazy(() => import('./pages/Distribution'))
+const Avisos = lazy(() => import('./pages/Avisos'))
+const Settings = lazy(() => import('./pages/Settings'))
 import { DataClientProvider } from './lib/clientContext'
 import { loadSession, saveSession, clearSession, getAuthClient, resetAuthClient, createSessionClient, type SessionUser } from './lib/auth'
 
@@ -32,6 +40,19 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   settings:     { title: 'Configurações',        subtitle: 'Usuários e acesso ao sistema' },
 }
 
+function PageSkeleton() {
+  return (
+    <div style={{ padding: '24px 28px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ height: 26, width: 240, borderRadius: 8, background: 'rgba(255,255,255,0.05)' }} />
+        <div style={{ height: 13, width: 160, borderRadius: 6, background: 'rgba(255,255,255,0.03)' }} />
+        <div style={{ height: 190, borderRadius: 14, background: 'rgba(255,255,255,0.025)', marginTop: 10 }} />
+        <div style={{ height: 190, borderRadius: 14, background: 'rgba(255,255,255,0.025)' }} />
+      </div>
+    </div>
+  )
+}
+
 function PageComponent({ page, onNavigate, userRole }: { page: Page; onNavigate?: (page: Page) => void; userRole: 'matriz' | 'filial' }) {
   switch (page) {
     case 'overview':     return <Overview onNavigate={onNavigate} />
@@ -46,7 +67,7 @@ function PageComponent({ page, onNavigate, userRole }: { page: Page; onNavigate?
     case 'distribution': return <Distribution />
     case 'avisos':       return <Avisos />
     case 'settings':     return <Settings userRole={userRole} />
-    default:             return <Overview />
+    default:             return <Overview onNavigate={onNavigate} />
   }
 }
 
@@ -180,7 +201,9 @@ export default function App() {
               transition: 'opacity 0.15s ease, transform 0.15s ease',
             }}
           >
-            <PageComponent page={currentPage} onNavigate={handleNavigate} userRole={user.role} />
+            <Suspense fallback={<PageSkeleton />}>
+              <PageComponent page={currentPage} onNavigate={handleNavigate} userRole={user.role} />
+            </Suspense>
           </main>
         </div>
       </div>

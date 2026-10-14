@@ -41,7 +41,7 @@ export default function Distribution() {
     () =>
       epis.filter((e) => {
         const q = search.toLowerCase()
-        return !q || e.name.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
+        return !q || (e.name ?? "").toLowerCase().includes(q) || (e.category ?? "").toLowerCase().includes(q)
       }),
     [epis, search],
   )
@@ -92,7 +92,7 @@ export default function Distribution() {
 
   if (!isMatriz) {
     return (
-      <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
+      <div className="page-enter" style={{ padding: '24px 28px' }}>
         <div className="glass-strong" style={{ maxWidth: 480, borderRadius: 16, padding: '32px', textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>🚫</div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#E8EAF6', margin: '0 0 6px' }}>Acesso restrito</h3>
@@ -105,7 +105,7 @@ export default function Distribution() {
   }
 
   return (
-    <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
+    <div className="page-enter" style={{ padding: '24px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#E8EAF6', margin: '0 0 4px', letterSpacing: '-0.03em' }}>Distribuição de EPIs</h2>

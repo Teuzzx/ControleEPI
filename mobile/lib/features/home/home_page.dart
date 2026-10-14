@@ -347,9 +347,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
+        // Capacete de obra, não escudo: o equipamento é o símbolo do produto.
         leading: const Padding(
           padding: EdgeInsets.only(left: 14),
-          child: Icon(Icons.shield_rounded, color: kIndigo, size: 24),
+          child: Icon(Icons.health_and_safety, color: kIndigo, size: 24),
         ),
         title: const Text('Controle de EPI'),
         actions: [
@@ -434,71 +435,83 @@ class _HomePageState extends ConsumerState<HomePage> {
             Row(
               children: [
                 Container(
-                  width: 46,
-                  height: 46,
+                  width: 52,
+                  height: 52,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: kIndigo.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(kRadius),
+                    border: Border.all(color: kIndigo.withValues(alpha: 0.30)),
+                    boxShadow: kDepth(0.6),
                   ),
                   child: Text(
-                    (session?.name ?? '?').trim().isEmpty ? '?' : (session!.name.trim().substring(0, 1)).toUpperCase(),
+                    (session?.name ?? '?').trim().isEmpty
+                        ? '?'
+                        : (session!.name.trim().substring(0, 1)).toUpperCase(),
                     style: const TextStyle(
                       color: kIndigo,
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Olá, ${session?.name.split(' ').first ?? ''} 👋',
-                        style: const TextStyle(color: kText, fontSize: 18, fontWeight: FontWeight.w800),
+                        session?.name.split(' ').first ?? '',
+                        style: const TextStyle(
+                          color: kText,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
                       ),
-                      const Text('Almoxarife', style: TextStyle(color: kSub, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Almoxarife',
+                        style: TextStyle(
+                          color: kSub,
+                          fontSize: 13,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            _ActionCard(
+            const SizedBox(height: kGapXl),
+            // Hierarquia real: a saída é a ação que o almoxarife repete o
+            // turno inteiro. Devolução e estoque são secundárias.
+            PrimaryAction(
               icon: Icons.inventory_2_rounded,
-              title: 'Dar Saída de EPI',
+              label: 'Dar Saída de EPI',
               subtitle: 'Entrega com foto e assinatura',
               color: kIndigo,
+              emphasized: true,
               onTap: () => context.push('/saida'),
             ),
-            const SizedBox(height: 12),
-            _ActionCard(
+            const SizedBox(height: kGapSm),
+            PrimaryAction(
               icon: Icons.replay_rounded,
-              title: 'Registrar Devolução',
+              label: 'Registrar Devolução',
               subtitle: 'Item devolvido volta ao estoque',
               color: kCyan,
               onTap: () => context.push('/devolucao'),
             ),
-            const SizedBox(height: 12),
-            _ActionCard(
+            const SizedBox(height: kGapSm),
+            PrimaryAction(
               icon: Icons.bar_chart_rounded,
-              title: 'Consultar Estoque',
+              label: 'Consultar Estoque',
               subtitle: 'Somente leitura',
               color: kGreen,
               onTap: () => context.push('/estoque'),
             ),
-            const SizedBox(height: 28),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Últimas movimentações',
-                    style: TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w700)),
-                const Text('tempo real', style: TextStyle(color: kMuted, fontSize: 11)),
-              ],
-            ),
-            const SizedBox(height: 10),
+            const SectionHeader(title: 'Últimas movimentações'),
+            const SizedBox(height: kGapSm),
             movements.when(
               data: (rows) {
                 if (rows.isEmpty) {
@@ -564,66 +577,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.55)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.28),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Icon(icon, size: 24, color: Colors.white),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: kText, fontSize: 15, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: kSub, fontSize: 12.5)),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right, color: color),
-        ],
       ),
     );
   }

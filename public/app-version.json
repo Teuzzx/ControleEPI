@@ -1,5 +1,5 @@
 {
-  "version": "1.0.14",
-  "notes": "Correção da data das movimentações: registros feitos online no app ficavam sem horário no sistema web. Agora toda saída e devolução grava a data/hora corretas, e o web mostra as fotos e assinaturas direto na lista de Movimentações.",
+  "version": "1.0.15",
+  "notes": "Interface do app refeita: cards com profundidade de verdade, navegação em vidro que deixa a lista passar por baixo, e as três ações da tela inicial agora têm hierarquia real — dar saída é a ação principal. As etapas de saída e devolução mostram um selo verde quando já estão prontas, então dá para ver o que falta sem ler. O texto de apoio ficou legível na luz de fábrica (o cinza anterior dava 1,9:1 de contraste). O estoque é lido por cor: vermelho esgotou, âmbar acabando. O APK caiu de 52 MB para 18 MB, baixando bem mais rápido no 4G.\n\nATENÇÃO: instale pela primeira vez. O APK anterior usava uma chave de assinatura que se perdeu, então quem já tinha o app precisa desinstalar antes de instalar este. Depois desta, toda atualização é automática.\n\nTambém corrigido o aviso de versão nova que aparecia no painel web com números errados e nunca saía.",
   "apkUrl": "/Controle-EPI.apk"
 }

@@ -26,7 +26,7 @@ export default function Movements() {
 
   const filtered = movements.filter((m) => {
     const q = search.toLowerCase()
-    const matchSearch = !q || m.employee.toLowerCase().includes(q) || m.epi.toLowerCase().includes(q)
+    const matchSearch = !q || (m.employee ?? "").toLowerCase().includes(q) || (m.epi ?? "").toLowerCase().includes(q)
     const matchType = typeFilter === 'all' || m.type === typeFilter
     return matchSearch && matchType
   })
@@ -61,13 +61,13 @@ export default function Movements() {
 
   const filteredGroups = groups.filter((g) => {
     const q = search.toLowerCase()
-    return !q || g.list.some((m) => m.employee.toLowerCase().includes(q) || m.epi.toLowerCase().includes(q))
+    return !q || g.list.some((m) => (m.employee ?? "").toLowerCase().includes(q) || (m.epi ?? "").toLowerCase().includes(q))
   })
 
   const totalSaidas = filteredGroups.reduce((s, g) => s + g.list.reduce((t, m) => t + m.quantity, 0), 0)
 
   return (
-    <div style={{ padding: '24px 28px', animation: 'fade-up 0.5s ease both' }}>
+    <div className="page-enter" style={{ padding: '24px 28px' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>

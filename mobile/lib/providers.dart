@@ -13,14 +13,26 @@ import 'models/session.dart';
 import 'repositories/auth_repo.dart';
 import 'repositories/data_repo.dart';
 
+// ── Serviço de sincronização offline ─────────────────────────────────────
+// Declarado antes da sessão porque o SessionNotifier o recebe por
+// injeção (para poder encerrar o listener de conectividade no logout).
+
+final syncServiceProvider = Provider<SyncService>((ref) {
+  final service = SyncService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
 // ── Sessão ───────────────────────────────────────────────────────────────
 
 final sessionProvider = StateNotifierProvider<SessionNotifier, AppSession?>(
-  (ref) => SessionNotifier(),
+  (ref) => SessionNotifier(ref.read(syncServiceProvider)),
 );
 
 class SessionNotifier extends StateNotifier<AppSession?> {
-  SessionNotifier() : super(_load());
+  SessionNotifier(this._sync) : super(_load());
+
+  final SyncService _sync;
 
   static AppSession? _load() {
     final raw = Hive.box<String>(HiveService.sessionBox).get('current');
@@ -44,6 +56,16 @@ class SessionNotifier extends StateNotifier<AppSession?> {
   }
 
   Future<void> logout() async {
+    // Encerra o serviço de sincronização ANTES de derrubar a sessão: o
+    // listener de conectividade guarda o `ref` da HomePage e chamaria
+    // `processQueue` apontando para uma sessão já destruída — era uma das
+    // fontes do "erro ao acessar" após sair/entrar no app.
+    try {
+      await _sync.stop();
+    } catch (_) {
+      // logout nunca pode falhar por causa da fila offline
+    }
+
     await Hive.box<String>(HiveService.sessionBox).delete('current');
     state = null;
   }
@@ -62,10 +84,6 @@ final dataClientProvider = Provider<SupabaseClient?>((ref) {
   return SupabaseClient(Config.supabaseMatrizUrl, Config.supabaseMatrizAnonKey,
       headers: {'x-session-token': session.token});
 });
-
-// ── Serviço de sincronização offline ─────────────────────────────────────
-
-final syncServiceProvider = Provider<SyncService>((ref) => SyncService());
 
 // ── Dados (com cache offline) ────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Search,
   Plus,
@@ -45,11 +45,20 @@ function MovementTypeBadge({ type }: { type: string }) {
 }
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
-  const initials = name
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
+  // Nome vazio ou só com espaços quebrava o cálculo: `"".split(" ")`
+  // devolve `[""]`, `n[0]` vira `undefined` e o avatar renderizava a
+  // palavra "undefined". `charCodeAt(0)` de uma string vazia é `NaN`, e
+  // `colors[NaN]` é `undefined`, gerando `background: "undefined28"`.
+  const safeName = (name ?? "").trim()
+  const initials =
+    safeName.length === 0
+      ? "?"
+      : safeName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((n) => n[0]!.toUpperCase())
+          .join("")
   const colors = [
     "#6366F1",
     "#22D3EE",
@@ -59,7 +68,8 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
     "#8B5CF6",
     "#EC4899",
   ]
-  const color = colors[name.charCodeAt(0) % colors.length]
+  const code = safeName.length > 0 ? safeName.charCodeAt(0) : 0
+  const color = colors[code % colors.length]!
   return (
     <div
       style={{
@@ -110,16 +120,26 @@ export default function Employees() {
     const q = search.toLowerCase()
     const matchSearch =
       !q ||
-      e.name.toLowerCase().includes(q) ||
-      e.registration.toLowerCase().includes(q) ||
-      e.cpf.includes(q)
+      (e.name ?? "").toLowerCase().includes(q) ||
+      (e.registration ?? "").toLowerCase().includes(q) ||
+      (e.cpf ?? "").includes(q)
     const matchStatus = statusFilter === "all" || e.status === statusFilter
     const matchTeam = teamFilter === "all" || e.team === teamFilter
     return matchSearch && matchStatus && matchTeam
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  // Excluir o último item da página 3 deixava `page` apontando para uma
+  // página que não existe mais e a tabela aparecia vazia ("Nenhum
+  // colaborador encontrado") mesmo havendo registros. Volta para a
+  // última página válida sempre que os dados encolhem.
+  const safePage = Math.min(page, totalPages)
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage)
+  }, [page, safePage])
+
+  const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
 
   const selectedHistory = useMemo<Movement[]>(
     () =>
@@ -177,7 +197,7 @@ export default function Employees() {
   }
 
   return (
-    <div style={{ padding: "24px 28px", animation: "fade-up 0.5s ease both" }}>
+    <div className="page-enter" style={{ padding: "24px 28px" }}>
       {/* Header */}
       <div
         style={{
@@ -573,12 +593,12 @@ export default function Employees() {
                   height: 28,
                   borderRadius: 7,
                   background:
-                    n === page ? "rgba(99,102,241,0.2)" : "transparent",
+                    n === safePage ? "rgba(99,102,241,0.2)" : "transparent",
                   border:
-                    n === page
+                    n === safePage
                       ? "1px solid rgba(99,102,241,0.4)"
                       : "1px solid transparent",
-                  color: n === page ? "#A5B4FC" : "#5C6388",
+                  color: n === safePage ? "#A5B4FC" : "#5C6388",
                   fontSize: 12.5,
                   fontWeight: n === page ? 700 : 400,
                   cursor: "pointer",

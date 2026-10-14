@@ -86,6 +86,27 @@ body {
 
 /* ── Keyframe Animations ─────────────────────────────────────────────── */
 
+/* ── Page transition ────────────────────────────────────────────────────
+   Toda página usava `animation: fade-up 0.5s ease both` inline, com o mesmo
+   deslocamento de 24px. Doze entradas idênticas = uma animação que não
+   comunica nada. Unificada em `.page-enter`: mais curta, menos deslocamento,
+   aplicada uma vez por troca de tela. Ver DESIGN_DNA.md §8. */
+
+.page-enter {
+  animation: page-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -201,21 +222,6 @@ body {
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.10);
-}
-
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #6366F1, #22D3EE);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-text-warm {
-  background: linear-gradient(135deg, #A78BFA, #6366F1, #22D3EE);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* Loading shimmer */
@@ -430,6 +436,13 @@ body {
   to   { transform: scale(1.08); }
 }
 
+/* O wallpaper entra com um leve afastamento e para. Antes era
+   `infinite alternate` de 30s: a tela de login nunca parava de pedir GPU,
+   com a tela em dia inteiro em frente. */
+.login-wallpaper {
+  animation: ken-burns 24s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
 @keyframes glow-pulse-soft {
   0%, 100% { box-shadow: 0 0 14px rgba(109, 94, 248, 0.25); }
   50%      { box-shadow: 0 0 28px rgba(109, 94, 248, 0.5); }
@@ -449,8 +462,34 @@ body {
   animation: float-gentle 6s ease-in-out infinite;
 }
 
+/* `.blur-reveal` e `.float-gentle` disputam a shorthand `animation`, e a
+   declarada por último vence. Como `.float-gentle` vinha depois, o logo
+   ficava só com a animação de flutuar e nunca recebia o `opacity: 1` do
+   reveal — sumindo da tela para sempre. Aqui as duas composem: o reveal
+   cuida de opacity/filtro, o flutuar cuida do transform. */
+.blur-reveal.float-gentle {
+  animation:
+    blur-reveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) both,
+    float-gentle 6s ease-in-out 0.9s infinite;
+}
+
 .glow-pulse-soft {
   animation: glow-pulse-soft 2.6s ease-in-out infinite;
+}
+
+/* Respeita "reduzir movimento" em toda a tela de login. Antes só o
+   .page-enter do painel interno respeitava — o wallpaper continuava
+   deslocando e o logo flutuando para sempre. */
+@media (prefers-reduced-motion: reduce) {
+  .blur-reveal,
+  .float-gentle,
+  .glow-pulse-soft,
+  .login-wallpaper {
+    animation: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
 }
 
 .btn-ripple-ink {
@@ -572,4 +611,37 @@ body {
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   stroke: rgba(255,255,255,0.04) !important;
+}
+
+/* ============================================================
+   Login — layout dividido
+   O form fica sozinho no celular. A partir de 1100px entra a
+   coluna lateral, que preenche o vazio da tela larga com o que o
+   produto faz em vez de enfeite.
+   ============================================================ */
+.login-split {
+  display: flex;
+  align-items: center;
+  gap: 64px;
+  width: 100%;
+  justify-content: center;
+}
+
+.login-aside {
+  display: none;
+  width: 400px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1100px) {
+  .login-aside { display: block; }
+}
+
+@media (max-width: 1099px) {
+  .login-split { gap: 0; }
+}
+
+@media (max-width: 640px) {
+  .login-split { padding: 0 4px; }
+  .login-aside { display: none !important; }
 }
