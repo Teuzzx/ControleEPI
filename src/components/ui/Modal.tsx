@@ -68,20 +68,43 @@ export default function Modal({ onClose, children, label }: Props) {
     if (scrollbar > 0) body.style.paddingRight = `${scrollbar}px`
 
     restoreFocusTo.current = document.activeElement as HTMLElement | null
-    // Foca o primeiro campo do formulário dentro do modal.
-    overlayRef.current
-      ?.querySelector<HTMLElement>(
-        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
-      )
-      ?.focus()
 
     return () => {
       document.removeEventListener('keydown', handler)
       body.style.overflow = previousOverflow
       body.style.paddingRight = previousPadding
-      restoreFocusTo.current?.focus?.()
+
+      // Só devolve o foco ao elemento anterior se ele realmente saiu do
+      // modal. Este cleanup roda a cada render do pai — e o pai passa
+      // `onClose={() => ...}`, que é uma função nova a cada render. Sem
+      // esta guarda, digitar uma letra no formulário disparava o cleanup,
+      // que focava o elemento de origem e jogava o cursor no botão de
+      // fechar no meio da escrita.
+      const previous = restoreFocusTo.current
+      const stillInside = previous !== null && overlayRef.current?.contains(document.activeElement)
+      if (!stillInside) previous?.focus?.()
+      restoreFocusTo.current = null
     }
+    // onClose entra na dependencia para o handler de Esc/Escape e o
+    // keydown ficarem sempre corretos, mas isso NAO pode reexecutar o resto
+    // do efeito: o autofocus a cada tecla digitada jogava o foco no
+    // botao de fechar no meio da escrita.
   }, [onClose])
+
+  // Foco inicial do formulario, em efeito separado e sem dependencias:
+  // roda uma vez so, na montagem. Antes isso vivia no efeito acima e
+  // disparava a cada render do pai (cada tecla digitada), tirando o foco
+  // do campo que a pessoa estava usando.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      overlayRef.current
+        ?.querySelector<HTMLElement>(
+          'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])',
+        )
+        ?.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   return createPortal(
     <div

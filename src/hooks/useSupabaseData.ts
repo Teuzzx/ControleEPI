@@ -178,6 +178,23 @@ export function useSupabaseData() {
     setLoading(true)
     setError(null)
 
+    // Sessão expirada é diferente de banco vazio. Sem esta checagem, um token
+    // vencido fazia o RLS devolver zero linhas em TODAS as tabelas e o painel
+    // mostrava "0 colaboradores / 0 em estoque" sem nenhuma mensagem — parecia
+    // que os dados tinham sumido. A função app_session_is_valid() é security
+    // definer justamente para conseguir ler `sessions`, que o RLS bloqueia.
+    const { data: sessionOk, error: sessionErr } = await client.rpc("app_session_is_valid")
+    if (sessionErr) {
+      setError(sessionErr.message)
+      setLoading(false)
+      return
+    }
+    if (sessionOk === false) {
+      setError(SESSION_EXPIRED)
+      setLoading(false)
+      return
+    }
+
     const [
       depRes,
       catsRes,
@@ -1423,3 +1440,14 @@ export function useSupabaseData() {
     markAllNotificationsRead,
   }
 }
+
+/**
+ * Mensagem de sessão expirada.
+ *
+ * O token de sessão vale 12h. Passado isso, o RLS começa a devolver zero
+ * linhas em todas as tabelas — o painel mostrava zeros sem explicar nada.
+ * Esta constante é o texto que o usuário vê quando isso acontece, para que
+ * "saiu do login" não pareça "perdeu os dados".
+ */
+export const SESSION_EXPIRED =
+  'Sua sessão expirou. Saia e entre novamente para ver os dados.'

@@ -1,0 +1,17 @@
+# Pastas que a Vercel nao precisa e que estouram o limite de 100 MB.
+# O build da Vercel roda `npm run build`, que gera o dist/ na hora dele.
+node_modules
+dist
+mobile/build
+mobile/.dart_tool
+mobile/android/.gradle
+mobile/android/app/build
+mobile/android/build
+mobile/.flutter-plugins-dependencies
+.vercel
+*.zip
+.env
+.env.*
+*.keystore
+*.jks
+key.properties

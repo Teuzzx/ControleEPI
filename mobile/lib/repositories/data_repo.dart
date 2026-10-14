@@ -12,6 +12,25 @@ import 'storage_repo.dart';
 class DataRepo {
   // ── Consultas ──────────────────────────────────────────────────────────
 
+  /// Verdadeiro quando o token de sessao ainda vale.
+  ///
+  /// Sem esta checagem, um token expirado (12h) nao produz NENHUM erro: o RLS
+  /// simplesmente devolve zero linhas, e o app mostrava listas vazias parecendo
+  /// que o banco nao tinha dados — sem nunca dizer "sua sessao expirou".
+  /// A funcao `app_session_is_valid` e security definer de proposito: precisa
+  /// ler `sessions`, que o RLS bloqueia para o anon.
+  ///
+  /// Se a funcao nao existir no servidor (migration 0013 ainda nao aplicada),
+  /// devolve `true` para nao travar o app por causa de uma checagem extra.
+  static Future<bool> isSessionValid(SupabaseClient client) async {
+    try {
+      final res = await client.rpc('app_session_is_valid');
+      return res == true;
+    } catch (_) {
+      return true;
+    }
+  }
+
   static Future<List<Employee>> fetchEmployees(SupabaseClient client) async {
     final res = await client
         .from('employees')
@@ -120,13 +139,30 @@ class DataRepo {
         .inFilter('epi_id', epiIds);
     final variants = (varsRes as List).cast<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
 
+    // Compara cor e tamanho normalizados. O banco pode guardar "" num lado e
+    // null no outro para a mesma variação "sem cor/tamanho"; a comparação
+    // estrita reprova e estourava "não encontrada" mesmo com o EPI e a
+    // variação existindo no banco — que era o erro na hora de dar saída.
+    String norm(Object? v) => (v as String?)?.trim().toLowerCase() ?? '';
+
     EpiVariant matchVariant(CartItem item) {
-      final v = variants.firstWhere(
+      final pool =
+          variants.where((x) => (x['epi_id'] as num).toInt() == item.epiId).toList();
+
+      final v = pool.firstWhere(
         (x) =>
-            (x['epi_id'] as num).toInt() == item.epiId &&
-            (x['color'] as String? ?? '') == item.color &&
-            (x['size'] as String? ?? '') == item.size,
-        orElse: () => throw Exception('Variação de "${item.epiName}" não encontrada.'),
+            norm(x['color']) == norm(item.color) && norm(x['size']) == norm(item.size),
+        orElse: () {
+          // EPI com uma única variação não tem como "não casar": é ela.
+          if (pool.length == 1) return pool.first;
+          final opcoes = pool
+              .map((x) => norm(x['size']).isEmpty ? 'único' : norm(x['size']))
+              .join(', ');
+          throw Exception(
+            'Variação de "${item.epiName}" não encontrada. '
+            'Tamanhos disponíveis: $opcoes.',
+          );
+        },
       );
       return EpiVariant.fromMap(v);
     }

@@ -12,3 +12,5 @@ key.properties
 
 # Relatorio de problemas do Gradle (build artifact)
 mobile/android/build/
+.vercel
+.env*

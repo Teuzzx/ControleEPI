@@ -2,7 +2,7 @@
  * VersÃ£o atual do sistema web (bump manual a cada release).
  * A mesma versÃ£o deve constar no `app-version.json` publicado no site.
  */
-export const APP_VERSION = '1.0.15'
+export const APP_VERSION = '1.0.16'
 
 export interface AppUpdate {
   version: string
@@ -33,4 +33,5 @@ export async function checkForAppUpdate(): Promise<AppUpdate | null> {
     return null
   }
 }
+
 
